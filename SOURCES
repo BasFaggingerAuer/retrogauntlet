@@ -1,0 +1,20 @@
+Retro Gauntlet contains the following code and data from other projects:
+
+src/blowfishhexpi.h
+By Mike Schaudies
+
+include/dosfont.h
+8x16 MS-DOS font from DOSBox.
+Copyright (C) 2002-2010, The DOSBox Team per the GNU General Public License.
+
+include/ini.h
+src/ini.c
+inih -- simple .INI file parser
+Copyright (C) 2009-2020, Ben Hoyt per the New BSD license
+https://github.com/benhoyt/inih
+
+data/crt_lottes.frag
+GLSL fragment shader to emulate a CRT display
+By Timothy Lottes
+Public domain
+
