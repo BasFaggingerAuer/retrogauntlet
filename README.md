@@ -2,6 +2,8 @@
 
 Retro Gauntlet is a wrapper for the [libretro](https://www.libretro.com/) API to host and join races of your favorite retro games locally or over the internet.
 
+![Example lobby](lobby.png)
+
 ## Copyright
 
 Retro Gauntlet is distributed under the GNU General Public License version 3, please see COPYING and SOURCES.
