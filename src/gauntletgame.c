@@ -976,7 +976,7 @@ void game_update_menu_text(struct gauntlet_game *game) {
     switch (game->menu.state) {
         case RETRO_GAUNTLET_STATE_SELECT_GAUNTLET:
             do {
-                strcpy(game->menu.text, "<F1>    : Host network game\n<F2>    : Join network game from clipboard address\n<Arrows>: Select gauntlet\n<R>     : Select random gauntlet\n<F>     : Toggle fullscreen\n<Enter> : Run gauntlet single player\n\n");
+                strcpy(game->menu.text, "<F1>    : Host network game\n<F2>    : Join network game from clipboard address\n<Arrows>: Select gauntlet\n<R>     : Select random gauntlet\n<F>     : Toggle fullscreen\n<Enter> : Run gauntlet single player\nPress <Pause> while running a gauntlet to perform memory inspection\n\n");
                 const int i_start = max(0, (int)game->i_gauntlet - 6);
                 const int i_end = min((int)game->nr_gauntlets, i_start + 14);
 

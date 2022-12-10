@@ -1,6 +1,2 @@
-msdos/skyroads/l06_finish.ini
-msdos/skyroads/l05_finish.ini
-msdos/skyroads/l04_finish.ini
-msdos/skyroads/l03_finish.ini
-msdos/skyroads/l02_finish.ini
-msdos/skyroads/l01_finish.ini
+msdos/skydemo/l01_finish.ini
+msdos/skydemo/l02_finish.ini

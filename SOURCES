@@ -5,7 +5,7 @@ By Mike Schaudies
 
 include/dosfont.h
 8x16 MS-DOS font from DOSBox.
-Copyright (C) 2002-2010, The DOSBox Team per the GNU General Public License.
+Copyright (C) 2002-2010, The DOSBox Team per the GNU General Public License
 
 include/ini.h
 src/ini.c
@@ -17,4 +17,29 @@ data/crt_lottes.frag
 GLSL fragment shader to emulate a CRT display
 By Timothy Lottes
 Public domain
+
+data/eden.s3m
+Eden music for the Psychic Monks 1995 demo The Fall
+By Necros / FM per the Mod Archive Distribution license
+https://modarchive.org/index.php?request=view_by_moduleid&query=40463
+
+data/sound/win01.wav
+success_bell sound
+By MLAudio per the Creative Commons 0 License
+https://freesound.org/people/MLaudio/sounds/511484/
+
+data/sound/lose01.wav
+Game Die sound
+By Jofae per the Create Commons 0 License
+https://freesound.org/people/Jofae/sounds/364929/
+
+data/msdos/dosbox_pure_libretro.*
+DOSBox fork built for RetroArch/Libretro
+By schellingb per the GNU General Public License
+https://github.com/schellingb/dosbox-pure
+
+data/msdos/skydemo/skydemo.zip
+SkyRoads DOS computer game demo
+By Bluemoon Interactive distributed as shareware
+http://www.bluemoon.ee/history/skyroads/index.html
 

@@ -1,0 +1,6 @@
+dosbox_pure_cycles 16000
+dosbox_pure_cpu_type 386
+dosbox_pure_cpu_core normal
+dosbox_pure_machine vga
+dosbox_pure_memory_size 8
+dosbox_pure_audiorate 44100
