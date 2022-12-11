@@ -772,7 +772,10 @@ bool free_core_snapshots(struct retro_core *core) {
 void update_snapshot(struct retro_core *core, const unsigned mask_condition, const unsigned data_condition, const unsigned mask_action, const unsigned size_value, const uint64_t const_value, const size_t i_snapshot, const size_t nr_data, const void *data) {
     if (!core) return;
     if (i_snapshot >= core->nr_snapshots) return;
-    if (nr_data == 0 || !data) return;
+    if (nr_data == 0 || !data) {
+        fprintf(MEM_FILE, "Core provides no data for snapshot %zu!\n", i_snapshot);
+        return;
+    }
     
     if (nr_data != core->nr_snapshot_data[i_snapshot] ||
         !core->snapshot_data[i_snapshot] ||

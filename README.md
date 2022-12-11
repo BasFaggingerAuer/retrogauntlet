@@ -1,6 +1,7 @@
 # Retro Gauntlet
 
 Retro Gauntlet is a wrapper for the [libretro](https://www.libretro.com/) API to host and join races of your favorite retro games locally or over the internet.
+Please also see the [RetroArch](https://github.com/libretro/RetroArch) and [WTFweg](https://github.com/mudlord/WTFweg) libretro frontends.
 
 ![Example lobby](lobby.png)
 
@@ -16,8 +17,9 @@ Simply extract the archive containing the [latest release](/releases/latest) for
 
 Optionally you can provide a different data directory as a command line argument
 
-`./retrogauntlet ../my_other_data_folder`
+`./retrogauntlet ../data`
 
+The data folder should contain the files `menu.ini` and `playlist.txt`.
 Necessary libretro cores (emulators) can be found [here](https://buildbot.libretro.com/nightly/) for the operating system of your choice.
 
 ## Adding a game to the playlist
@@ -64,6 +66,7 @@ Follow these steps in the root of the repository:
 
 1. Optionally update `Makefile` to work on your system.
 2. `make`
+3. `build/retrogauntlet data`
 
 This builds the executable `build/retrogauntlet`.
 
@@ -75,3 +78,5 @@ Run the following commands in the root of the repository:
 2. `cd build`
 3. `cmake ..`
 4. `make` or `ninja`
+5. `./retrogauntlet ../data`
+

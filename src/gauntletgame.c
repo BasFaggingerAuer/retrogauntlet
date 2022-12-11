@@ -705,20 +705,20 @@ bool game_host_start_gauntlet(struct gauntlet_game *game) {
     
     if (game->menu.sync_level >= RETRO_GAUNTLET_SYNC_INI) {
         if (ok) ok = ok && game_host_broadcast_file(game, g->ini_file);
-        if (ok) ok = ok && game_host_broadcast_file(game, g->win_condition_file);
+        if (ok && g->win_condition_file) ok = ok && game_host_broadcast_file(game, g->win_condition_file);
         if (ok && g->lose_condition_file) ok = ok && game_host_broadcast_file(game, g->lose_condition_file);
         if (ok && g->rom_startup_file) ok = ok && game_host_broadcast_file(game, g->rom_startup_file);
         if (ok && g->core_variables_file) ok = ok && game_host_broadcast_file(game, g->core_variables_file);
         
         if (game->menu.sync_level >= RETRO_GAUNTLET_SYNC_SAVE) {
-            if (ok) ok = ok && game_host_broadcast_file(game, g->core_save_file);
+            if (ok && g->core_save_file) ok = ok && game_host_broadcast_file(game, g->core_save_file);
 
             if (game->menu.sync_level >= RETRO_GAUNTLET_SYNC_ROM) {
-                if (ok) ok = ok && game_host_broadcast_file(game, g->rom_file);
+                if (ok && g->rom_file) ok = ok && game_host_broadcast_file(game, g->rom_file);
 
                 if (game->menu.sync_level >= RETRO_GAUNTLET_SYNC_ALL) {
-                    if (ok) ok = ok && game_host_broadcast_file(game, g->core_library_file_win64);
-                    if (ok) ok = ok && game_host_broadcast_file(game, g->core_library_file_linux64);
+                    if (ok && g->core_library_file_win64) ok = ok && game_host_broadcast_file(game, g->core_library_file_win64);
+                    if (ok && g->core_library_file_linux64) ok = ok && game_host_broadcast_file(game, g->core_library_file_linux64);
                 }
             }
         }

@@ -161,7 +161,7 @@ bool create_gauntlet(struct gauntlet *g, const char *ini_file, const char *data_
     g->core_library_file = g->core_library_file_linux64;
 #endif
 
-    if (!g->core_library_file || !g->core_save_file || !g->rom_file || !g->title) {
+    if (!g->core_library_file || !g->title) {
         fprintf(ERROR_FILE, "create_gauntlet: Missing crucial gauntlet information in '%s'!\n", ini_file);
         free_gauntlet(g);
         return false;

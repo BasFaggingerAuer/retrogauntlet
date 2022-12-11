@@ -395,7 +395,7 @@ bool video_set_pixel_format(struct gl_video *video, const enum retro_pixel_forma
             return false;
     }
 
-    fprintf(INFO_FILE, "Set screen pixel format to %u, %u, %u bytes per pixel.\n", video->pixel_type, video->pixel_format, video->bytes_per_pixel);
+    fprintf(INFO_FILE, "Set screen pixel format to %u, %u, %u bytes per pixel from %u.\n", video->pixel_type, video->pixel_format, video->bytes_per_pixel, format);
 
     return true;
 }
