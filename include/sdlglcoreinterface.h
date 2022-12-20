@@ -59,21 +59,18 @@ struct sdl_gl_core_interface {
     //Keyboard.
     SDL_Scancode *retro_key_to_sdl_scancode_map;
     unsigned *sdl_scancode_to_retro_key_map;
+    unsigned *sdl_scancode_to_retro_pad_map;
     uint8_t *sdl_scancode_override_key_map;
 
     //Controller.
     unsigned *sdl_controller_button_to_retro_pad_map;
-    bool controller_buttons[RETRO_DEVICE_JOYPAD_NR_BUTTONS];
+    bool controller_buttons[RETRO_DEVICE_JOYPAD_NR_BUTTONS + 1];
     SDL_GameController *controller;
 };
 
 #define SCANCODE_NO_OVERRIDE 0
 #define SCANCODE_OVERRIDE_DOWN 1
 #define SCANCODE_OVERRIDE_UP 2
-
-unsigned *create_sdl_controller_button_to_retro_pad_map();
-unsigned *create_sdl_scancode_to_retro_key_map();
-SDL_Scancode *create_retro_key_to_sdl_scancode_map();
 
 bool create_sdl_gl_if(struct sdl_gl_core_interface *);
 bool sdl_gl_if_create_core_buffers(struct sdl_gl_core_interface *);

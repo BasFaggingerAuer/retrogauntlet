@@ -1056,10 +1056,8 @@ bool core_check_conditions(const struct retro_core *core, struct retro_core_memo
                         fprintf(ERROR_FILE, "core_check_conditions: Invalid data comparison %u!\n", c->compare);
                 }
                 
-                if (triggered) {
-                    if (!debug) return true;
-                    else if (value != c->last_value) fprintf(MEM_FILE, "Debug met condition: %08zx %08zx: %08zx --> %08zx\n", c->snapshot, c->offset, c->last_value, value);
-                }
+                if (triggered && !debug) return true;
+                if (debug && value != c->last_value) fprintf(MEM_FILE, "Debug met condition %d: %08zx %08zx: %08zx --> %08zx\n", (int)triggered, c->snapshot, c->offset, c->last_value, value);
 
                 c->last_value = value;
             }

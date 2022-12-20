@@ -41,7 +41,7 @@ unsigned *create_sdl_controller_button_to_retro_pad_map() {
     return map;
 }
 
-//Setup a mapping from libretro keys to SDL scancodes.
+//Setup a mapping from SDL scancodes to libretro keys.
 unsigned *create_sdl_scancode_to_retro_key_map() {
     unsigned *map = calloc(SDL_NUM_SCANCODES, sizeof(unsigned));
 
@@ -168,6 +168,30 @@ unsigned *create_sdl_scancode_to_retro_key_map() {
     map[SDL_SCANCODE_MENU] = RETROK_MENU;
     map[SDL_SCANCODE_POWER] = RETROK_POWER;
     map[SDL_SCANCODE_UNDO] = RETROK_UNDO;
+
+    return map;
+}
+
+//Setup a mapping from SDL scancodes to libretro game contoller buttons. Per the snes9x default controls.
+unsigned *create_sdl_scancode_to_retro_pad_map() {
+    unsigned *map = calloc(SDL_NUM_SCANCODES, sizeof(unsigned));
+
+    if (!map) return NULL;
+
+    for (int i = 0; i < SDL_NUM_SCANCODES; ++i) map[i] = RETRO_DEVICE_JOYPAD_NR_BUTTONS;
+
+    map[SDL_SCANCODE_D] = RETRO_DEVICE_ID_JOYPAD_A;
+    map[SDL_SCANCODE_C] = RETRO_DEVICE_ID_JOYPAD_B;
+    map[SDL_SCANCODE_S] = RETRO_DEVICE_ID_JOYPAD_X;
+    map[SDL_SCANCODE_X] = RETRO_DEVICE_ID_JOYPAD_Y;
+    map[SDL_SCANCODE_SPACE] = RETRO_DEVICE_ID_JOYPAD_SELECT;
+    map[SDL_SCANCODE_RETURN] = RETRO_DEVICE_ID_JOYPAD_START;
+    map[SDL_SCANCODE_UP] = RETRO_DEVICE_ID_JOYPAD_UP;
+    map[SDL_SCANCODE_DOWN] = RETRO_DEVICE_ID_JOYPAD_DOWN;
+    map[SDL_SCANCODE_LEFT] = RETRO_DEVICE_ID_JOYPAD_LEFT;
+    map[SDL_SCANCODE_RIGHT] = RETRO_DEVICE_ID_JOYPAD_RIGHT;
+    map[SDL_SCANCODE_A] = RETRO_DEVICE_ID_JOYPAD_L;
+    map[SDL_SCANCODE_Z] = RETRO_DEVICE_ID_JOYPAD_R;
 
     return map;
 }
@@ -318,11 +342,13 @@ bool create_sdl_gl_if(struct sdl_gl_core_interface *sgci) {
     sgci->sdl_controller_button_to_retro_pad_map = create_sdl_controller_button_to_retro_pad_map();
     sgci->retro_key_to_sdl_scancode_map = create_retro_key_to_sdl_scancode_map();
     sgci->sdl_scancode_to_retro_key_map = create_sdl_scancode_to_retro_key_map();
+    sgci->sdl_scancode_to_retro_pad_map = create_sdl_scancode_to_retro_pad_map();
     sgci->sdl_scancode_override_key_map = calloc(SDL_NUM_SCANCODES, 1);
 
     if (!sgci->sdl_controller_button_to_retro_pad_map ||
         !sgci->retro_key_to_sdl_scancode_map ||
         !sgci->sdl_scancode_to_retro_key_map ||
+        !sgci->sdl_scancode_to_retro_pad_map ||
         !sgci->sdl_scancode_override_key_map) {
         fprintf(ERROR_FILE, "create_sdl_gl_if: Unable to allocate controller/keyboard map!\n");
         return false;
@@ -499,6 +525,7 @@ bool free_sdl_gl_if(struct sdl_gl_core_interface *sgci) {
     if (sgci->audio_buffer) free(sgci->audio_buffer);
     if (sgci->sdl_scancode_override_key_map) free(sgci->sdl_scancode_override_key_map);
     if (sgci->sdl_scancode_to_retro_key_map) free(sgci->sdl_scancode_to_retro_key_map);
+    if (sgci->sdl_scancode_to_retro_pad_map) free(sgci->sdl_scancode_to_retro_pad_map);
     if (sgci->retro_key_to_sdl_scancode_map) free(sgci->retro_key_to_sdl_scancode_map);
     if (sgci->sdl_controller_button_to_retro_pad_map) free(sgci->sdl_controller_button_to_retro_pad_map);
     if (sgci->controller) SDL_GameControllerClose(sgci->controller);
@@ -560,11 +587,7 @@ int16_t sdl_gl_if_get_input_state(struct sdl_gl_core_interface *sgci, const unsi
 
             return 0;
         case RETRO_DEVICE_JOYPAD:
-            if (id < RETRO_DEVICE_JOYPAD_NR_BUTTONS) {
-                return sgci->controller_buttons[id];
-            }
-
-            return 0;
+            return (id < RETRO_DEVICE_JOYPAD_NR_BUTTONS ? sgci->controller_buttons[id] : 0);
         case RETRO_DEVICE_POINTER:
             if (!sgci->enable_mouse) return 0;
 
@@ -658,9 +681,15 @@ bool sdl_gl_if_handle_event(struct sdl_gl_core_interface *sgci, const SDL_Event 
             break;
         case SDL_KEYUP:
             sdl_gl_if_keyboard_callback(sgci, event.key);
+
+            //Emulate controller with the keyboard if needed.
+            if (!sgci->controller && sgci->sdl_scancode_to_retro_pad_map) sgci->controller_buttons[sgci->sdl_scancode_to_retro_pad_map[event.key.keysym.scancode]] = false;
             break;
         case SDL_KEYDOWN:
             sdl_gl_if_keyboard_callback(sgci, event.key);
+
+            //Emulate controller with the keyboard if needed.
+            if (!sgci->controller && sgci->sdl_scancode_to_retro_pad_map) sgci->controller_buttons[sgci->sdl_scancode_to_retro_pad_map[event.key.keysym.scancode]] = true;
             break;
         case SDL_MOUSEBUTTONDOWN:
             sgci->mouse.buttons |= event.button.button;
@@ -685,7 +714,8 @@ bool sdl_gl_if_handle_event(struct sdl_gl_core_interface *sgci, const SDL_Event 
             sgci->controller = SDL_GameControllerOpen(event.cdevice.which);
             break;
         case SDL_CONTROLLERDEVICEREMOVED:
-            //Ignore removal of controllers.
+            if (sgci->controller) SDL_GameControllerClose(sgci->controller);
+            sgci->controller = NULL;
             break;
         case SDL_CONTROLLERBUTTONDOWN:
             if (sgci->sdl_controller_button_to_retro_pad_map) sgci->controller_buttons[sgci->sdl_controller_button_to_retro_pad_map[event.cbutton.button]] = true;
