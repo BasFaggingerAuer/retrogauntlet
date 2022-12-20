@@ -1102,6 +1102,7 @@ void game_update_menu_text(struct gauntlet_game *game) {
             strcat(game->menu.text, ".\n");
             break;
         case RETRO_GAUNTLET_STATE_MESSAGE:
+        case RETRO_GAUNTLET_STATE_QUIT_CONFIRM:
             //Leave message as-is.
             break;
         case RETRO_GAUNTLET_STATE_LOBBY_HOST:

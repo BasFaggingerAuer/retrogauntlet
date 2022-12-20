@@ -341,10 +341,25 @@ void menu_draw(struct retrogauntlet_menu *menu) {
     if (SDL_MUSTLOCK(surf) == SDL_TRUE) SDL_UnlockSurface(surf);
 }
 
+void menu_escape(struct retrogauntlet_menu *menu, const char *format, ...) {
+    if (!menu || !format) return;
+
+    if (menu->state != RETRO_GAUNTLET_STATE_MESSAGE && menu->state != RETRO_GAUNTLET_STATE_QUIT_CONFIRM) menu->last_state = menu->state;
+    menu->state = RETRO_GAUNTLET_STATE_QUIT_CONFIRM;
+    
+    va_list args;
+
+    va_start(args, format);
+    vsnprintf(menu->text, NR_RETRO_GAUNTLET_MENU_TEXT, format, args);
+    va_end(args);
+    
+    menu_draw(menu);
+}
+
 void menu_draw_message(struct retrogauntlet_menu *menu, const char *format, ...) {
     if (!menu || !format) return;
     
-    if (menu->state != RETRO_GAUNTLET_STATE_MESSAGE) menu->last_state = menu->state;
+    if (menu->state != RETRO_GAUNTLET_STATE_MESSAGE && menu->state != RETRO_GAUNTLET_STATE_QUIT_CONFIRM) menu->last_state = menu->state;
     menu->state = RETRO_GAUNTLET_STATE_MESSAGE;
     
     va_list args;

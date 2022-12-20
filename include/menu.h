@@ -26,7 +26,8 @@ enum retrogauntlet_menu_state {
     RETRO_GAUNTLET_STATE_SETUP_GAUNTLET = 2,
     RETRO_GAUNTLET_STATE_MESSAGE        = 3,
     RETRO_GAUNTLET_STATE_LOBBY_HOST     = 4,
-    RETRO_GAUNTLET_STATE_LOBBY_CLIENT   = 5
+    RETRO_GAUNTLET_STATE_LOBBY_CLIENT   = 5,
+    RETRO_GAUNTLET_STATE_QUIT_CONFIRM   = 6
 };
 
 enum retrogauntlet_sync_level {
@@ -79,6 +80,7 @@ struct retrogauntlet_menu {
 bool create_menu(struct retrogauntlet_menu *, const char *, const char *, const unsigned, const unsigned);
 bool free_menu(struct retrogauntlet_menu *);
 void menu_draw(struct retrogauntlet_menu *);
+void menu_escape(struct retrogauntlet_menu *, const char *, ...);
 void menu_draw_message(struct retrogauntlet_menu *, const char *, ...);
 bool menu_start_mixer(struct retrogauntlet_menu *);
 bool menu_stop_mixer(struct retrogauntlet_menu *);

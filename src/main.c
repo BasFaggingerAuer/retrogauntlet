@@ -500,6 +500,8 @@ int main(int argc, char **argv) {
                 case SDL_KEYDOWN:
                     switch (game.menu.state) {
                         case RETRO_GAUNTLET_STATE_MESSAGE:
+                            event_core = false;
+
                             switch (event.key.keysym.sym) {
                                 case SDLK_RETURN:
                                 case SDLK_ESCAPE:
@@ -507,9 +509,41 @@ int main(int argc, char **argv) {
                                     break;
                             }
                             break;
+                        case RETRO_GAUNTLET_STATE_QUIT_CONFIRM:
+                            event_core = false;
+
+                            switch (event.key.keysym.sym) {
+                                case SDLK_RETURN:
+                                case SDLK_ESCAPE:
+                                case SDLK_n:
+                                    game.menu.state = game.menu.last_state;
+                                    break;
+                                case SDLK_y:
+                                    game.menu.state = game.menu.last_state;
+                                    
+                                    switch (game.menu.last_state) {
+                                        case RETRO_GAUNTLET_STATE_SELECT_GAUNTLET:
+                                            keep_running = false;
+                                            break;
+                                        case RETRO_GAUNTLET_STATE_LOBBY_HOST:
+                                            game_stop_host(&game);
+                                            break;
+                                        case RETRO_GAUNTLET_STATE_LOBBY_CLIENT:
+                                            game_stop_client(&game);
+                                            break;
+                                        case RETRO_GAUNTLET_STATE_RUN_CORE:
+                                            if (selected_gauntlet) selected_gauntlet->status = RETRO_GAUNTLET_LOST;
+                                            break;
+                                        default:
+                                            break;
+                                    }
+                                    break;
+                            }
+                            break;
                         case RETRO_GAUNTLET_STATE_SELECT_GAUNTLET:
                             switch (event.key.keysym.sym) {
                                 case SDLK_ESCAPE:
+                                    //menu_escape(&game.menu, "Are you sure you want to quit (y/n)?");
                                     keep_running = false;
                                     break;
                                 case SDLK_F1:
@@ -545,6 +579,8 @@ int main(int argc, char **argv) {
                             }
                             break;
                         case RETRO_GAUNTLET_STATE_SETUP_GAUNTLET:
+                            event_core = false;
+
                             switch (event.key.keysym.sym) {
                                 case SDLK_PAUSE:
                                     SDL_PauseAudioDevice(game.sgci.audio_device_id, 0);
@@ -651,7 +687,7 @@ int main(int argc, char **argv) {
                         case RETRO_GAUNTLET_STATE_LOBBY_HOST:
                             switch (event.key.keysym.sym) {
                                 case SDLK_ESCAPE:
-                                    game_stop_host(&game);
+                                    menu_escape(&game.menu, "Are you sure you want to stop hosting (y/n)?");
                                     break;
                                 case SDLK_UP:
                                     game_change_gauntlet_selection(&game, -1);
@@ -674,7 +710,7 @@ int main(int argc, char **argv) {
                         case RETRO_GAUNTLET_STATE_LOBBY_CLIENT:
                             switch (event.key.keysym.sym) {
                                 case SDLK_ESCAPE:
-                                    game_stop_client(&game);
+                                    menu_escape(&game.menu, "Are you sure you want to leave this lobby (y/n)?");
                                     break;
                                 case SDLK_f:
                                     fullscreen = !fullscreen;
@@ -693,7 +729,7 @@ int main(int argc, char **argv) {
                                     event_core = false;
                                     break;
                                 case SDLK_ESCAPE:
-                                    if (selected_gauntlet) selected_gauntlet->status = RETRO_GAUNTLET_LOST;
+                                    menu_escape(&game.menu, "Are you sure you want to give up this gauntlet run (y/n)?");
                                     event_core = false;
                                     break;
                                 //Restricted keys when a core is running.
