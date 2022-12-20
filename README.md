@@ -11,7 +11,7 @@ Retro Gauntlet is distributed under the GNU General Public License version 3, pl
 
 ## Installation
 
-Simply extract the archive containing the [latest release](/releases/latest) for your operating system to a folder of your choice and run the executable:
+Simply extract the archive containing the [latest release](https://github.com/BasFaggingerAuer/retrogauntlet/releases) for your operating system to a folder of your choice and run the executable:
 
 `./retrogauntlet`
 
