@@ -63,6 +63,7 @@ struct sdl_gl_core_interface {
     uint8_t *sdl_scancode_override_key_map;
 
     //Controller.
+    bool enable_controller;
     unsigned *sdl_controller_button_to_retro_pad_map;
     bool controller_buttons[RETRO_DEVICE_JOYPAD_NR_BUTTONS + 1];
     SDL_GameController *controller;

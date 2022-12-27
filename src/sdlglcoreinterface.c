@@ -587,6 +587,8 @@ int16_t sdl_gl_if_get_input_state(struct sdl_gl_core_interface *sgci, const unsi
 
             return 0;
         case RETRO_DEVICE_JOYPAD:
+            if (!sgci->enable_controller) return 0;
+
             return (id < RETRO_DEVICE_JOYPAD_NR_BUTTONS ? sgci->controller_buttons[id] : 0);
         case RETRO_DEVICE_POINTER:
             if (!sgci->enable_mouse) return 0;

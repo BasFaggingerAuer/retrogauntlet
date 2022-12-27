@@ -45,6 +45,7 @@ struct gauntlet {
     char *controls;
 
     bool enable_mouse;
+    bool enable_controller;
     bool enable_debug;
     
     enum gauntlet_status status;

@@ -28,6 +28,7 @@ static int gauntlet_ini_handler(void *user, const char *section, const char *nam
     if (strcmp(section, "rom") == 0 && strcmp(name, "rom") == 0) g->rom_file = combine_paths(g->data_directory, value);
     if (strcmp(section, "rom") == 0 && strcmp(name, "startup") == 0) g->rom_startup_file = combine_paths(g->data_directory, value);
     if (strcmp(section, "rom") == 0 && strcmp(name, "mouse") == 0) g->enable_mouse = (strcmp(value, "yes") == 0);
+    if (strcmp(section, "rom") == 0 && strcmp(name, "controller") == 0) g->enable_controller = (strcmp(value, "yes") == 0);
     
     if (strcmp(section, "gauntlet") == 0 && strcmp(name, "save") == 0) g->core_save_file = combine_paths(g->data_directory, value);
     if (strcmp(section, "gauntlet") == 0 && strcmp(name, "win") == 0) g->win_condition_file = combine_paths(g->data_directory, value);
@@ -199,6 +200,7 @@ bool gauntlet_start(struct gauntlet *g, struct sdl_gl_core_interface *sgci) {
     
     //Enable desired controllers.
     sgci->enable_mouse = g->enable_mouse;
+    sgci->enable_controller = g->enable_controller;
 
     //Run core for 1 iteration to initialize it.
     video_bind_frame_buffer(&sgci->video);

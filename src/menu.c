@@ -258,16 +258,6 @@ void menu_draw(struct retrogauntlet_menu *menu) {
     const uint32_t fg = SDL_MapRGBA(surf->format, menu->front_color.r, menu->front_color.g, menu->front_color.b, 0xff);
     const uint32_t bg = SDL_MapRGBA(surf->format, menu->back_color.r, menu->back_color.g, menu->back_color.b, 0xff);
 
-    if (SDL_MUSTLOCK(surf) == SDL_TRUE) SDL_LockSurface(surf);
-    
-    //Pitch in dwords.
-    const int pitch = surf->pitch/sizeof(uint32_t);
-    uint32_t *p;
-
-    //Clear screen.
-    p = (uint32_t *)surf->pixels;
-    for (int i = 0; i < surf->h*pitch; ++i) *p++ = bg;
-
     //Clear terminal.
     memset(menu->terminal, 0, TERM_W*TERM_H);
     
@@ -308,10 +298,18 @@ void menu_draw(struct retrogauntlet_menu *menu) {
         if (c == 0) break;
     }
     
+    //Clear screen.
+    SDL_FillRect(surf, NULL, bg);
+
+    if (SDL_MUSTLOCK(surf) == SDL_TRUE) SDL_LockSurface(surf);
+
     //Fill 720x400 screen with 80x25 text consisting of 9x16 character glyphs.
+
+    //Pitch in dwords.
+    const int pitch = surf->pitch/sizeof(uint32_t);
+    uint32_t *p = (uint32_t *)surf->pixels;
     t = menu->terminal;
 
-    p = (uint32_t *)surf->pixels;
     for (int y = 0; y < TERM_H; ++y) {
         uint32_t *p2 = p;
         uint8_t c;
