@@ -1051,13 +1051,13 @@ void game_update_menu_text(struct gauntlet_game *game) {
                     strcat(game->menu.text, "IS GREATER THAN LAST FRAME");
                     break;
                 case MASK_IF_DATA_EQUAL_CONST:
-                    sprintf(game->menu.text + strlen(game->menu.text), "EQUALS %zu", game->snapshot_const_value);
+                    sprintf(game->menu.text + strlen(game->menu.text), "EQUALS %zu", (size_t)game->snapshot_const_value);
                     break;
                 case MASK_IF_DATA_LESS_CONST:
-                    sprintf(game->menu.text + strlen(game->menu.text), "IS LESS THAN %zu", game->snapshot_const_value);
+                    sprintf(game->menu.text + strlen(game->menu.text), "IS LESS THAN %zu", (size_t)game->snapshot_const_value);
                     break;
                 case MASK_IF_DATA_GREATER_CONST:
-                    sprintf(game->menu.text + strlen(game->menu.text), "IS GREATER THAN %zu", game->snapshot_const_value);
+                    sprintf(game->menu.text + strlen(game->menu.text), "IS GREATER THAN %zu", (size_t)game->snapshot_const_value);
                     break;
                 default:
                     strcat(game->menu.text, "UNKNOWN");

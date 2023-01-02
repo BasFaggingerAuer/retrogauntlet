@@ -925,8 +925,13 @@ bool set_core_memory_maps(struct retro_core *core, const struct retro_memory_map
         
         //FIXME: Not so elegant, see what RetroArch does with this...
         *(struct retro_memory_descriptor *)&core->mmap.descriptors[i] = d;
-
-        fprintf(CORE_FILE, "Added memory descriptor %u (%s): flags %lu, pointer %p, offset %zu, start %zu, select %zu, disconnect %zu, len %zu.\n", i, d.addrspace, d.flags, d.ptr, d.offset, d.start, d.select, d.disconnect, d.len);
+        
+        if (d.addrspace) {
+            fprintf(CORE_FILE, "Added memory descriptor %u (%s): flags %lu, pointer %p, offset %zu, start %zu, select %zu, disconnect %zu, len %zu.\n", i, d.addrspace, d.flags, d.ptr, (size_t)d.offset, (size_t)d.start, (size_t)d.select, (size_t)d.disconnect, (size_t)d.len);
+        }
+        else {
+            fprintf(CORE_FILE, "Added memory descriptor %u (): flags %lu, pointer %p, offset %zu, start %zu, select %zu, disconnect %zu, len %zu.\n", i, d.flags, d.ptr, (size_t)d.offset, (size_t)d.start, (size_t)d.select, (size_t)d.disconnect, (size_t)d.len);
+        }
     }
     
     return true;
