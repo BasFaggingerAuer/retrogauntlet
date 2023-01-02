@@ -337,6 +337,8 @@ bool create_sdl_gl_if(struct sdl_gl_core_interface *sgci) {
     memset(sgci, 0, sizeof(struct sdl_gl_core_interface));
 
     sgci->core_keep_running = true;
+    sgci->enable_mouse = false;
+    sgci->mouse_button_mask = SDL_BUTTON_LMASK | SDL_BUTTON_RMASK | SDL_BUTTON_MMASK | SDL_BUTTON_X1MASK | SDL_BUTTON_X2MASK;
 
     //Setup keymaps.
     sgci->sdl_controller_button_to_retro_pad_map = create_sdl_controller_button_to_retro_pad_map();
@@ -458,9 +460,6 @@ bool sdl_gl_if_reset_audio(struct sdl_gl_core_interface *sgci) {
     sgci->audio_buffer_start = 0;
     sgci->audio_buffer_available = 0;
     memset(sgci->audio_buffer, 0, sgci->nr_audio_buffer);
-    
-    memset(sgci->sdl_scancode_override_key_map, SCANCODE_NO_OVERRIDE, SDL_NUM_SCANCODES);
-
     return true;
 }
 
@@ -553,15 +552,15 @@ int16_t sdl_gl_if_get_input_state(struct sdl_gl_core_interface *sgci, const unsi
                 case RETRO_DEVICE_ID_MOUSE_Y:
                     return sgci->mouse.relative_y;
                 case RETRO_DEVICE_ID_MOUSE_LEFT:
-                    return ((sgci->mouse.buttons & SDL_BUTTON_LMASK) != 0);
+                    return ((sgci->mouse.buttons & sgci->mouse_button_mask & SDL_BUTTON_LMASK) != 0);
                 case RETRO_DEVICE_ID_MOUSE_RIGHT:
-                    return ((sgci->mouse.buttons & SDL_BUTTON_RMASK) != 0);
+                    return ((sgci->mouse.buttons & sgci->mouse_button_mask & SDL_BUTTON_RMASK) != 0);
                 case RETRO_DEVICE_ID_MOUSE_MIDDLE:
-                    return ((sgci->mouse.buttons & SDL_BUTTON_MMASK) != 0);
+                    return ((sgci->mouse.buttons & sgci->mouse_button_mask & SDL_BUTTON_MMASK) != 0);
                 case RETRO_DEVICE_ID_MOUSE_BUTTON_4:
-                    return ((sgci->mouse.buttons & SDL_BUTTON_X1MASK) != 0);
+                    return ((sgci->mouse.buttons & sgci->mouse_button_mask & SDL_BUTTON_X1MASK) != 0);
                 case RETRO_DEVICE_ID_MOUSE_BUTTON_5:
-                    return ((sgci->mouse.buttons & SDL_BUTTON_X2MASK) != 0);
+                    return ((sgci->mouse.buttons & sgci->mouse_button_mask & SDL_BUTTON_X2MASK) != 0);
                 case RETRO_DEVICE_ID_MOUSE_WHEELUP:
                     return (sgci->mouse.wheel_y > 0);
                 case RETRO_DEVICE_ID_MOUSE_WHEELDOWN:
@@ -662,7 +661,9 @@ void sdl_gl_if_keyboard_callback(struct sdl_gl_core_interface *sgci, const SDL_K
         if (sdl_mod & KMOD_SCROLL) core_mod |= RETROKMOD_SCROLLOCK;
 #endif
 
-        sgci->core_keyboard_callback(key.state == SDL_PRESSED, sgci->sdl_scancode_to_retro_key_map[key.keysym.scancode], key.keysym.sym, core_mod); 
+        if (sgci->sdl_scancode_override_key_map[key.keysym.scancode] == SCANCODE_NO_OVERRIDE) {
+            sgci->core_keyboard_callback(key.state == SDL_PRESSED, sgci->sdl_scancode_to_retro_key_map[key.keysym.scancode], key.keysym.sym, core_mod);
+        }
     }
 }
 
@@ -748,6 +749,7 @@ bool sdl_gl_if_apply_command(struct sdl_gl_core_interface *sgci, const char *cmd
     }
 
     const int vari = atoi(var);
+    const SDL_Keycode key = SDL_GetKeyFromName(var);
     
     if (strcmp(cmd, "run") == 0) {
         for (int i = 0; i < vari; ++i) {
@@ -756,14 +758,28 @@ bool sdl_gl_if_apply_command(struct sdl_gl_core_interface *sgci, const char *cmd
         }
     }
     else if (strcmp(cmd, "keydown") == 0 || strcmp(cmd, "keyup") == 0) {
-        const SDL_Keycode key = SDL_GetKeyFromName(var);
-
         if (key == SDLK_UNKNOWN) {
             fprintf(ERROR_FILE, "sdl_gl_if_apply_command: Unknown key '%s' for '%s'!\n", var, cmd);
             return false;
         }
 
         sgci->core_keyboard_callback(strcmp(cmd, "keydown") == 0, sgci->sdl_scancode_to_retro_key_map[SDL_GetScancodeFromKey(key)], key, 0); 
+    }
+    else if (strcmp(cmd, "keyoverridedown") == 0) {
+        if (key == SDLK_UNKNOWN) {
+            fprintf(ERROR_FILE, "sdl_gl_if_apply_command: Unknown key '%s' for '%s'!\n", var, cmd);
+            return false;
+        }
+        
+        sgci->sdl_scancode_override_key_map[SDL_GetScancodeFromKey(key)] = SCANCODE_OVERRIDE_DOWN;
+    }
+    else if (strcmp(cmd, "keyoverrideup") == 0) {
+        if (key == SDLK_UNKNOWN) {
+            fprintf(ERROR_FILE, "sdl_gl_if_apply_command: Unknown key '%s' for '%s'!\n", var, cmd);
+            return false;
+        }
+        
+        sgci->sdl_scancode_override_key_map[SDL_GetScancodeFromKey(key)] = SCANCODE_OVERRIDE_UP;
     }
     else {
         fprintf(ERROR_FILE, "core_apply_command: Unknown command '%s'!\n", cmd);
@@ -816,6 +832,8 @@ bool sdl_gl_if_run_commands_from_file(struct sdl_gl_core_interface *sgci, const 
             }
         }
     }
+
+    fprintf(CORE_FILE, "\n");
 
     fclose(f);
 

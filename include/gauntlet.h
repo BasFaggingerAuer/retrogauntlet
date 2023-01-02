@@ -45,6 +45,7 @@ struct gauntlet {
     char *controls;
 
     bool enable_mouse;
+    int mouse_button_mask;
     bool enable_controller;
     bool enable_debug;
     

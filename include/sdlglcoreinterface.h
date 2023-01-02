@@ -55,6 +55,7 @@ struct sdl_gl_core_interface {
         int wheel_y;
     } mouse;
     bool enable_mouse;
+    int mouse_button_mask;
 
     //Keyboard.
     SDL_Scancode *retro_key_to_sdl_scancode_map;

@@ -27,7 +27,28 @@ static int gauntlet_ini_handler(void *user, const char *section, const char *nam
     if (strcmp(section, "core") == 0 && strcmp(name, "variables") == 0) g->core_variables_file = combine_paths(g->data_directory, value);
     if (strcmp(section, "rom") == 0 && strcmp(name, "rom") == 0) g->rom_file = combine_paths(g->data_directory, value);
     if (strcmp(section, "rom") == 0 && strcmp(name, "startup") == 0) g->rom_startup_file = combine_paths(g->data_directory, value);
-    if (strcmp(section, "rom") == 0 && strcmp(name, "mouse") == 0) g->enable_mouse = (strcmp(value, "yes") == 0);
+    if (strcmp(section, "rom") == 0 && strcmp(name, "mouse") == 0) {
+        if (strcmp(value, "yes") == 0) {
+            g->enable_mouse = true;
+            g->mouse_button_mask = SDL_BUTTON_LMASK | SDL_BUTTON_RMASK | SDL_BUTTON_MMASK | SDL_BUTTON_X1MASK | SDL_BUTTON_X2MASK;
+        }
+        else if (strcmp(value, "left") == 0) {
+            g->enable_mouse = true;
+            g->mouse_button_mask = SDL_BUTTON_LMASK;
+        }
+        else if (strcmp(value, "right") == 0) {
+            g->enable_mouse = true;
+            g->mouse_button_mask = SDL_BUTTON_RMASK;
+        }
+        else if (strcmp(value, "leftright") == 0) {
+            g->enable_mouse = true;
+            g->mouse_button_mask = SDL_BUTTON_LMASK | SDL_BUTTON_RMASK;
+        }
+        else if (strcmp(value, "middle") == 0) {
+            g->enable_mouse = true;
+            g->mouse_button_mask = SDL_BUTTON_MMASK;
+        }
+    }
     if (strcmp(section, "rom") == 0 && strcmp(name, "controller") == 0) g->enable_controller = (strcmp(value, "yes") == 0);
     
     if (strcmp(section, "gauntlet") == 0 && strcmp(name, "save") == 0) g->core_save_file = combine_paths(g->data_directory, value);
@@ -147,6 +168,12 @@ bool create_gauntlet(struct gauntlet *g, const char *ini_file, const char *data_
 
     memset(g, 0, sizeof(struct gauntlet));
 
+    g->enable_mouse = false;
+    g->mouse_button_mask = 0;
+    g->enable_controller = false;
+    g->enable_debug = false;
+    g->status = RETRO_GAUNTLET_OFF;
+
     g->data_directory = expand_to_full_path(data_directory);
     g->ini_file = strdup(ini_file);
 
@@ -200,6 +227,7 @@ bool gauntlet_start(struct gauntlet *g, struct sdl_gl_core_interface *sgci) {
     
     //Enable desired controllers.
     sgci->enable_mouse = g->enable_mouse;
+    sgci->mouse_button_mask = g->mouse_button_mask;
     sgci->enable_controller = g->enable_controller;
 
     //Run core for 1 iteration to initialize it.
