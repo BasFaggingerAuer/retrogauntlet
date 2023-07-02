@@ -11,7 +11,13 @@ Retro Gauntlet is distributed under the GNU General Public License version 3, pl
 
 ## Installation
 
-Simply extract the archive containing the [latest release](https://github.com/BasFaggingerAuer/retrogauntlet/releases) for your operating system to a folder of your choice and run the executable:
+Simply extract the archive containing the [latest release](https://github.com/BasFaggingerAuer/retrogauntlet/releases) for your operating system to a folder of your choice.
+
+First run
+
+`./get_game_data.sh`
+
+to retrieve the shareware game data, and then run the executable:
 
 `./retrogauntlet`
 
@@ -59,6 +65,15 @@ Please ensure that the following libraries are available in your build environme
 4. SDL 2 mixer library (libsdl2-mixer-dev).
 
 For Windows compilation an [msys2](https://www.msys2.org/) installation is strongly recommended and the Winsock 2 library must be available for networking support.
+
+### Retrieve game data files
+
+Before getting started, retrieve the shareware game data by running from the root of the repository:
+
+0. `data/get_game_data.sh`
+
+Otherwise only Skyroads is available for testing.
+(Of course feel free to add support for other libretro games.)
 
 ### Using `make`
 

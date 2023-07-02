@@ -1,2 +1,7 @@
 msdos/skydemo/l01_finish.ini
 msdos/skydemo/l02_finish.ini
+msdos/wolf3dsw/e01l01_finish.ini
+msdos/doom1sw/l01_finish.ini
+msdos/tim/l01_finish.ini
+msdos/comic1/get_ammo.ini
+genesis/sonic1/sonic1_50_rings.ini

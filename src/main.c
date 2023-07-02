@@ -566,6 +566,12 @@ int main(int argc, char **argv) {
                                 case SDLK_PAGEDOWN:
                                     game_change_gauntlet_selection(&game, 6);
                                     break;
+                                case SDLK_END:
+                                    game_change_gauntlet_selection(&game, game.nr_gauntlets);
+                                    break;
+                                case SDLK_HOME:
+                                    game_change_gauntlet_selection(&game, -game.nr_gauntlets);
+                                    break;
                                 case SDLK_r:
                                     game_select_rand_gauntlet(&game);
                                     break;

@@ -1,0 +1,6 @@
+run 30
+keyoverrideup l
+keyoverrideup i
+keyoverrideup m
+keyoverrideup t
+keyoverrideup g

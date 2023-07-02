@@ -19,8 +19,8 @@ You should have received a copy of the GNU General Public License along with Ret
 
 #include "libretro.h"
 
-#define RETRO_GAUNTLET_VERSION "0.0.6"
-#define RETRO_GAUNTLET_LOGO "                           RETRO GAUNTLET 0.0.6"
+#define RETRO_GAUNTLET_VERSION "0.0.7"
+#define RETRO_GAUNTLET_LOGO "                           RETRO GAUNTLET 0.0.7"
 
 #ifndef max
 #define max(a, b) ((a) > (b) ? (a) : (b))
