@@ -14,6 +14,7 @@ TARGET := retrogauntlet
 BUILD_DIR := ./build
 INCLUDE_DIR := ./include
 SOURCE_DIR := ./src
+USE_STEAM_RUNTIME = false
 
 CC := gcc
 MKDIRP := mkdir -p
@@ -23,7 +24,11 @@ LDFLAGS :=
 
 # External dependencies.
 CFLAGS += -I$(INCLUDE_DIR)
-CFLAGS += -D_POSIX_C_SOURCE=200809L
+CFLAGS += -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE
+
+ifeq ($(USE_STEAM_RUNTIME), true)
+    CFLAGS += -DUSE_STEAM_RUNTIME -D_BSD_SOURCE
+endif
 
 ifeq ($(OS), Windows_NT)
 	# Windows OS, builds using msys2/mingw. Have fun.

@@ -145,7 +145,9 @@ uint64_t core_get_cpu_features() {
     uint64_t flags = 0;
 
     flags |= (SDL_HasAVX() ? RETRO_SIMD_AVX : 0);
+#if SDL_COMPILEDVERSION >= SDL_VERSIONNUM(2, 0, 4)
     flags |= (SDL_HasAVX2() ? RETRO_SIMD_AVX2 : 0);
+#endif
     flags |= (SDL_HasMMX() ? RETRO_SIMD_MMX : 0);
     flags |= (SDL_HasSSE() ? RETRO_SIMD_SSE | RETRO_SIMD_MMXEXT : 0);
     flags |= (SDL_HasSSE2() ? RETRO_SIMD_SSE2 : 0);
@@ -430,7 +432,7 @@ int main(int argc, char **argv) {
         return EXIT_FAILURE;
     }
 
-    if (Mix_Init(MIX_INIT_FLAC | MIX_INIT_MOD | MIX_INIT_MP3 | MIX_INIT_OGG | MIX_INIT_MID) < 0) {
+    if (Mix_Init(MIX_INIT_FLAC | MIX_INIT_MOD | MIX_INIT_MP3 | MIX_INIT_OGG) < 0) {
         fprintf(ERROR_FILE, "Unable to initialize SDL_mixer: %s!\n", SDL_GetError());
         return EXIT_FAILURE;
     }

@@ -56,13 +56,13 @@ GLuint gl_compile_shader(const GLchar *code, const GLuint shader_type) {
         GL_CHECK(glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &nr_log));
 
         if (nr_log > 0) {
-            GLchar *log = (GLchar *)calloc(nr_log + 1, sizeof(GLchar));
+            GLchar *shader_log = (GLchar *)calloc(nr_log + 1, sizeof(GLchar));
 
-            if (log) {
-                GL_CHECK(glGetShaderInfoLog(shader, nr_log, 0, log));
-                log[nr_log] = 0;
-                fprintf(ERROR_FILE, "gl_compile_shader: Unable to compile shader: %s!\n", log);
-                free(log);
+            if (shader_log) {
+                GL_CHECK(glGetShaderInfoLog(shader, nr_log, 0, shader_log));
+                shader_log[nr_log] = 0;
+                fprintf(ERROR_FILE, "gl_compile_shader: Unable to compile shader: %s!\n", shader_log);
+                free(shader_log);
             }
         }
         else {
