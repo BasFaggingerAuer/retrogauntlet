@@ -55,11 +55,14 @@ endif
 
 # Steam.
 ifneq ($(STEAMWORKS_SDK),)
+    #TODO: Add Windows support.
     CFLAGS += -DUSE_STEAM
     CFLAGS += -isystem $(STEAMWORKS_SDK)/public
     LDFLAGS += -L$(STEAMWORKS_SDK)/public/steam/lib/linux64 -L$(STEAMWORKS_SDK)/redistributable_bin/linux64 -lsteam_api
     STEAM_API := libsteam_api.so
-    ALL_TARGETS += $(BUILD_DIR)/$(STEAM_API) $(BUILD_DIR)/$(TARGET_STEAM)
+    STEAM_APPID := steam_appid.txt
+    STEAM_LAUNCHER := steamlauncher.sh
+    ALL_TARGETS += $(BUILD_DIR)/$(STEAM_API) $(BUILD_DIR)/$(TARGET_STEAM) $(BUILD_DIR)/$(STEAM_APPID) $(BUILD_DIR)/$(STEAM_LAUNCHER)
 endif
 
 # Compilation of source files.
@@ -90,5 +93,11 @@ $(BUILD_DIR)/$(TARGET_STEAM): $(TARGET_STEAM_SOURCES:%=$(BUILD_DIR)/%.o)
 	$(CXX) $^ -o $@ $(LDFLAGS)
 
 $(BUILD_DIR)/$(STEAM_API): $(STEAMWORKS_SDK)/redistributable_bin/linux64/$(STEAM_API)
+	$(CP) -v $< $@
+
+$(BUILD_DIR)/$(STEAM_APPID): data/$(STEAM_APPID)
+	$(CP) -v $< $@
+
+$(BUILD_DIR)/$(STEAM_LAUNCHER): data/$(STEAM_LAUNCHER)
 	$(CP) -v $< $@
 

@@ -32,7 +32,7 @@ registry.gitlab.steamos.cloud/steamrt/sniper/sdk:latest \
 For running:
 steam steam://install/1628350
 
-/path/to/steamlibrary/steamapps/common/SteamLinuxRuntime_sniper/run -- build/retrogauntletsteam data
+/path/to/steamlibrary/steamapps/common/SteamLinuxRuntime_sniper/run -- ./steamlauncher.sh
 */
 #include <GL/glew.h>
 #include <GL/gl.h>
@@ -64,18 +64,14 @@ int main(int argc, char **argv) {
 
     if (argc > 1) data_directory = argv[1];
 
-    //TODO: Steam +connect ipaddress:port and +connect_lobby lobbyid parameter parsing.
-
     //Connect to steam.
     fprintf(INFO_FILE, "Connecting to Steam...\n");
 
     //TODO: Replace with valid appid when assigned.
     if (SteamAPI_RestartAppIfNecessary(k_uAppIdInvalid)) {
-        fprintf(ERROR_FILE, "Unable to (re)start the local steam client!\n");
+        fprintf(ERROR_FILE, "Restarting from the local steam client...\n");
         return EXIT_FAILURE;
     }
-
-    //TODO: Steamworks_InitCEGLibrary(), do we need this?
 
     if (!SteamAPI_Init()) {
         fprintf(ERROR_FILE, "Steam must be running to play this version of retrogauntlet!\n");
@@ -89,9 +85,10 @@ int main(int argc, char **argv) {
         return EXIT_FAILURE;
     }
 
-    //TODO: Support SteamApps()->GetLaunchCommandLine() for joining servers/lobbies.
+    fprintf(INFO_FILE, "Connected to steam as %s.\n", SteamFriends()->GetPersonaName());
 
-    //TODO: Steamworks_SelfCheck(), if we use CEG.
+    //TODO: Steam +connect ipaddress:port and +connect_lobby lobbyid parameter parsing.
+    //TODO: Support SteamApps()->GetLaunchCommandLine() for joining servers/lobbies.
 
     //TODO: SteamInput()->SetInputActionManifestFilePath("...vdf").
     
@@ -193,7 +190,6 @@ int main(int argc, char **argv) {
 
     //Shut down steam interface.
     SteamAPI_Shutdown();
-    //TODO: Do we need Steamworks_TermCEGLibrary()?
 
     fprintf(INFO_FILE, "Shut down Retro Gauntlet version %s.\n", RETRO_GAUNTLET_VERSION);
 
