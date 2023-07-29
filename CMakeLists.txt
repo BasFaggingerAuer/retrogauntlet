@@ -7,7 +7,7 @@
 # 
 # You should have received a copy of the GNU General Public License along with Retro Gauntlet. If not, see <https://www.gnu.org/licenses/>.
 cmake_minimum_required(VERSION 3.16)
-project(RG)
+project(RG C CXX)
 
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_FLAGS "-O2 -g -Wall -Wextra -Wshadow -std=c99 -pedantic")
@@ -23,7 +23,7 @@ include(FindPkgConfig)
 pkg_check_modules(SDL2MIXER REQUIRED SDL2_mixer>=2.0.0)
 
 include_directories(${GLEW_INCLUDE_DIR} ${OPENGL_INCLUDE_DIR} ${SDL2_INCLUDE_DIRS} ${SDL2MIXER_INCLUDE_DIRS} ${RG_SOURCE_DIR}/include/)
-add_executable(retrogauntlet src/main.c src/gauntletgame.c src/files.c src/stringextra.c src/net.c src/blowfish.c src/ini.c src/menu.c src/gauntlet.c src/core.c src/glcheck.c src/glvideo.c src/sdlglcoreinterface.c)
+add_executable(retrogauntlet src/main.c src/retrogauntlet.c src/gauntletgame.c src/files.c src/stringextra.c src/net.c src/blowfish.c src/ini.c src/menu.c src/gauntlet.c src/core.c src/glcheck.c src/glvideo.c src/sdlglcoreinterface.c)
 
 if (WIN32)
     target_link_libraries(retrogauntlet ws2_32 iphlpapi)
