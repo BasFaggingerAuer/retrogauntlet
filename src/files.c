@@ -23,7 +23,11 @@ You should have received a copy of the GNU General Public License along with Ret
 #endif
 
 #ifndef PATH_MAX
+#ifdef MAX_PATH
+#define PATH_MAX MAX_PATH
+#else
 #define PATH_MAX 4096
+#endif
 #endif
 
 char *expand_to_full_path(const char *path) {

@@ -79,8 +79,12 @@ struct gauntlet_game {
     unsigned snapshot_mask_size;
     uint64_t snapshot_const_value;
 
-    //SDL output window.
+    //SDL output window and related variables.
     SDL_Window *window;
+    Uint32 start_ticks;
+    Uint32 nr_frames;
+    bool fullscreen;
+    bool keep_running;
 };
 
 void game_draw_message_to_screen(struct gauntlet_game *, const char *, ...);
@@ -93,6 +97,7 @@ bool game_stop_gauntlet(struct gauntlet_game *);
 bool game_start_gauntlet(struct gauntlet_game *, const char *);
 void game_update_menu_text(struct gauntlet_game *);
 void game_update(struct gauntlet_game *);
+void game_sdl_event(struct gauntlet_game *, const SDL_Event);
 
 bool game_start_host(struct gauntlet_game *);
 bool game_stop_host(struct gauntlet_game *);

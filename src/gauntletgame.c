@@ -598,6 +598,11 @@ bool create_game(struct gauntlet_game *game, const char *data_directory, SDL_Win
 
     SDL_Delay(100);
     game->menu.state = RETRO_GAUNTLET_STATE_SELECT_GAUNTLET;
+    
+    game->start_ticks = 0;
+    game->nr_frames = 0;
+    game->fullscreen = false;
+    game->keep_running = true;
 
     return true;
 }
@@ -1134,6 +1139,12 @@ void game_update(struct gauntlet_game *game) {
         game_update_lobby_text(game);
     }
 
+    //Clear screen.
+    GL_CHECK(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
+    if (game->start_ticks == 0) game->start_ticks = SDL_GetTicks();
+    game->nr_frames++;
+
+    //Are we running a core?
     if (game->menu.state == RETRO_GAUNTLET_STATE_RUN_CORE) {
         //Check whether we satisfy win/lose conditions.
         gauntlet_check_status(&game->gauntlet, &game->sgci);
@@ -1205,6 +1216,33 @@ void game_update(struct gauntlet_game *game) {
         video_refresh_from_sdl_surface(&game->menu.video, game->menu.surface);
         video_render(&game->menu.video);
     }
+    
+    //Update window.
+    SDL_GL_SwapWindow(game->window);
+    
+    //Check whether we are at the desired framerate.
+    switch (game->menu.state) {
+        case RETRO_GAUNTLET_STATE_RUN_CORE:
+            //Try to match the desired frames per second to avoid audio stuttering.
+            if (true) {
+                Uint32 desired_ticks = (Uint32)(1000.0*(double)game->nr_frames/game->sgci.core.frames_per_second);
+                Uint32 ticks = SDL_GetTicks() - game->start_ticks;
+        
+                if (desired_ticks > ticks) {
+                    SDL_Delay(desired_ticks - ticks);
+                }
+                else {
+                    //We are behind --> ask for another frame.
+                    game->sgci.core.retro_run();
+                    game->nr_frames++;
+                }
+            }
+            break;
+        default:
+            //100fps should be more than enough for the menu.
+            SDL_Delay(10);
+            break;
+    }
 }
 
 void game_change_gauntlet_selection(struct gauntlet_game *game, const int delta) {
@@ -1266,6 +1304,298 @@ bool game_start_gauntlet(struct gauntlet_game *game, const char *gauntlet_ini_fi
     SDL_ShowCursor(SDL_DISABLE);
     
     return true;
+}
+
+void game_sdl_event(struct gauntlet_game *game, const SDL_Event event) {
+    if (!game || !game->window) return;
+
+    bool event_core = true;
+
+    switch (event.type) {
+        case SDL_QUIT:
+            game->keep_running = false;
+            break;
+        case SDL_KEYDOWN:
+            switch (game->menu.state) {
+                case RETRO_GAUNTLET_STATE_MESSAGE:
+                    //Remove message and return to previous menu screen.
+                    event_core = false;
+
+                    switch (event.key.keysym.sym) {
+                        case SDLK_RETURN:
+                        case SDLK_ESCAPE:
+                            game->menu.state = game->menu.last_state;
+                            break;
+                    }
+                    break;
+                case RETRO_GAUNTLET_STATE_QUIT_CONFIRM:
+                    //Check whether the user is indeed sure to quit.
+                    event_core = false;
+
+                    switch (event.key.keysym.sym) {
+                        case SDLK_RETURN:
+                        case SDLK_ESCAPE:
+                        case SDLK_n:
+                            game->menu.state = game->menu.last_state;
+                            break;
+                        case SDLK_y:
+                            game->menu.state = game->menu.last_state;
+                            
+                            //Quit from the current retrogauntlet activity.
+                            switch (game->menu.last_state) {
+                                case RETRO_GAUNTLET_STATE_SELECT_GAUNTLET:
+                                    game->keep_running = false;
+                                    break;
+                                case RETRO_GAUNTLET_STATE_LOBBY_HOST:
+                                    game_stop_host(game);
+                                    break;
+                                case RETRO_GAUNTLET_STATE_LOBBY_CLIENT:
+                                    game_stop_client(game);
+                                    break;
+                                case RETRO_GAUNTLET_STATE_RUN_CORE:
+                                    game->gauntlet.status = RETRO_GAUNTLET_LOST;
+                                    break;
+                                default:
+                                    break;
+                            }
+                            break;
+                    }
+                    break;
+                case RETRO_GAUNTLET_STATE_SELECT_GAUNTLET:
+                    //Screen where the player is selecting a specific gauntlet to run.
+                    switch (event.key.keysym.sym) {
+                        case SDLK_ESCAPE:
+                            //menu_escape(&game->menu, "Are you sure you want to quit (y/n)?");
+                            game->keep_running = false;
+                            break;
+                        case SDLK_F1:
+                            game_draw_message_to_screen(game, "Setting up host...");
+                            game_start_host(game);
+                            break;
+                        case SDLK_F2:
+                            game_draw_message_to_screen(game, "Joining game...");
+                            game_start_client(game, SDL_GetClipboardText());
+                            break;
+                        case SDLK_UP:
+                            game_change_gauntlet_selection(game, -1);
+                            break;
+                        case SDLK_DOWN:
+                            game_change_gauntlet_selection(game, 1);
+                            break;
+                        case SDLK_PAGEUP:
+                            game_change_gauntlet_selection(game, -6);
+                            break;
+                        case SDLK_PAGEDOWN:
+                            game_change_gauntlet_selection(game, 6);
+                            break;
+                        case SDLK_END:
+                            game_change_gauntlet_selection(game, game->nr_gauntlets);
+                            break;
+                        case SDLK_HOME:
+                            game_change_gauntlet_selection(game, -game->nr_gauntlets);
+                            break;
+                        case SDLK_r:
+                            game_select_rand_gauntlet(game);
+                            break;
+                        case SDLK_f:
+                            game->fullscreen = !game->fullscreen;
+                            break;
+                        case SDLK_RETURN:
+                            game_start_gauntlet(game, game->gauntlets[game->i_gauntlet].ini_file);
+                            break;
+                    }
+                    break;
+                case RETRO_GAUNTLET_STATE_SETUP_GAUNTLET:
+                    //Screen where the user can setup a gauntlet and perform memory inspection.
+                    event_core = false;
+
+                    switch (event.key.keysym.sym) {
+                        case SDLK_PAUSE:
+                            SDL_PauseAudioDevice(game->sgci.audio_device_id, 0);
+                            game->start_ticks = 0;
+                            game->nr_frames = 0;
+                            sdl_gl_if_reset_audio(&game->sgci);
+                            game->menu.state = RETRO_GAUNTLET_STATE_RUN_CORE;
+                            break;
+                        case SDLK_F5:
+                            if (game->gauntlet.core_save_file) core_serialize_to_file(game->gauntlet.core_save_file, &game->sgci.core);
+                            break;
+                        case SDLK_F9:
+                            if (game->gauntlet.core_save_file) core_unserialize_from_file(&game->sgci.core, game->gauntlet.core_save_file);
+                            break;
+                        case SDLK_F1:
+                            //Reset snapshot masks to 0.
+                            core_take_and_compare_snapshots(&game->sgci.core, MASK_IF_MASK_ALWAYS, MASK_IF_DATA_ALWAYS, MASK_THEN_SET_ZERO, MEMCON_VAR_8BIT, 0);
+                            break;
+                        case SDLK_F2:
+                            //Reset snapshot masks to 1.
+                            core_take_and_compare_snapshots(&game->sgci.core, MASK_IF_MASK_ALWAYS, MASK_IF_DATA_ALWAYS, MASK_THEN_SET_ONE, MEMCON_VAR_8BIT, 0);
+                            break;
+                        case SDLK_F3:
+                            game->snapshot_data_condition = MASK_IF_DATA_CHANGED;
+                            break;
+                        case SDLK_F4:
+                            game->snapshot_mask_action = MASK_THEN_LOG;
+                            break;
+                        case SDLK_a:
+                            game->snapshot_mask_condition = MASK_IF_MASK_ALWAYS;
+                            break;
+                        case SDLK_n:
+                            game->snapshot_mask_condition = MASK_IF_MASK_NEVER;
+                            break;
+                        case SDLK_0:
+                            game->snapshot_mask_condition = MASK_IF_MASK_ZERO;
+                            break;
+                        case SDLK_1:
+                            game->snapshot_mask_condition = MASK_IF_MASK_ONE;
+                            break;
+                        case SDLK_RIGHTBRACKET:
+                            game->snapshot_mask_action = MASK_THEN_AND_ONE;
+                            break;
+                        case SDLK_LEFTBRACKET:
+                            game->snapshot_mask_action = MASK_THEN_XOR_ONE;
+                            break;
+                        case SDLK_BACKSLASH:
+                            game->snapshot_mask_action = MASK_THEN_OR_ONE;
+                            break;
+                        case SDLK_MINUS:
+                            game->snapshot_mask_action = MASK_THEN_SET_ZERO;
+                            break;
+                        case SDLK_EQUALS:
+                            game->snapshot_mask_action = MASK_THEN_SET_ONE;
+                            break;
+                        case SDLK_o:
+                            game->snapshot_mask_action = MASK_THEN_ADD_ONE;
+                            break;
+                        case SDLK_p:
+                            game->snapshot_mask_action = MASK_THEN_SUB_ONE;
+                            break;
+                        case SDLK_z:
+                            game->snapshot_data_condition = MASK_IF_DATA_ALWAYS;
+                            break;
+                        case SDLK_x:
+                            game->snapshot_data_condition = MASK_IF_DATA_LESS_PREV;
+                            break;
+                        case SDLK_c:
+                            game->snapshot_data_condition = MASK_IF_DATA_EQUAL_PREV;
+                            break;
+                        case SDLK_v:
+                            game->snapshot_data_condition = MASK_IF_DATA_GREATER_PREV;
+                            break;
+                        case SDLK_g:
+                            game->snapshot_data_condition = MASK_IF_DATA_LESS_CONST;
+                            break;
+                        case SDLK_h:
+                            game->snapshot_data_condition = MASK_IF_DATA_EQUAL_CONST;
+                            break;
+                        case SDLK_j:
+                            game->snapshot_data_condition = MASK_IF_DATA_GREATER_CONST;
+                            break;
+                        case SDLK_4:
+                            game->snapshot_mask_size = MEMCON_VAR_8BIT;
+                            break;
+                        case SDLK_5:
+                            game->snapshot_mask_size = MEMCON_VAR_16BIT;
+                            break;
+                        case SDLK_6:
+                            game->snapshot_mask_size = MEMCON_VAR_32BIT;
+                            break;
+                        case SDLK_7:
+                            game->snapshot_mask_size = MEMCON_VAR_64BIT;
+                            break;
+                        case SDLK_RETURN:
+                            game->snapshot_const_value = atoi(SDL_GetClipboardText());
+                            break;
+                        case SDLK_SPACE:
+                            core_take_and_compare_snapshots(&game->sgci.core, game->snapshot_mask_condition, game->snapshot_data_condition, game->snapshot_mask_action, game->snapshot_mask_size, game->snapshot_const_value);
+                            break;
+                    }
+
+                    break;
+                case RETRO_GAUNTLET_STATE_LOBBY_HOST:
+                    //Player is creating a lobby to host a gauntlet.
+                    switch (event.key.keysym.sym) {
+                        case SDLK_ESCAPE:
+                            menu_escape(&game->menu, "Are you sure you want to stop hosting (y/n)?");
+                            break;
+                        case SDLK_UP:
+                            game_change_gauntlet_selection(game, -1);
+                            break;
+                        case SDLK_DOWN:
+                            game_change_gauntlet_selection(game, 1);
+                            break;
+                        case SDLK_r:
+                            game_select_rand_gauntlet(game);
+                            break;
+                        case SDLK_g:
+                            if (!game_host_start_gauntlet(game)) menu_draw_message(&game->menu, "Unable to host gauntlet!");
+                            break;
+                        case SDLK_f:
+                            game->fullscreen = !game->fullscreen;
+                            break;
+                    }
+                    break;
+                case RETRO_GAUNTLET_STATE_LOBBY_CLIENT:
+                    //Player is a client in somebody else's lobby.
+                    switch (event.key.keysym.sym) {
+                        case SDLK_ESCAPE:
+                            menu_escape(&game->menu, "Are you sure you want to leave this lobby (y/n)?");
+                            break;
+                        case SDLK_f:
+                            game->fullscreen = !game->fullscreen;
+                            break;
+                    }
+                    break;
+                case RETRO_GAUNTLET_STATE_RUN_CORE:
+                    //Player is running a libretro core for a gauntlet.
+                    switch (event.key.keysym.sym) {
+                        case SDLK_PAUSE:
+                            //Go to memory monitoring mode.
+                            if (game->host.sock < 0 && game->client.sock < 0) {
+                                SDL_PauseAudioDevice(game->sgci.audio_device_id, 1);
+                                game->menu.state = RETRO_GAUNTLET_STATE_SETUP_GAUNTLET;
+                            }
+                            event_core = false;
+                            break;
+                        case SDLK_ESCAPE:
+                            menu_escape(&game->menu, "Are you sure you want to give up this gauntlet run (y/n)?");
+                            event_core = false;
+                            break;
+                        //Restricted keys when a core is running.
+                        case SDLK_F1:
+                        case SDLK_F2:
+                        case SDLK_F3:
+                        case SDLK_F4:
+                        case SDLK_F5:
+                        case SDLK_F6:
+                        case SDLK_F7:
+                        case SDLK_F8:
+                        case SDLK_F9:
+                        case SDLK_F10:
+                        case SDLK_F11:
+                        case SDLK_F12:
+                            event_core = false;
+                            break;
+                    }
+                    break;
+                default:
+                    break;
+            }
+            break;
+        case SDL_WINDOWEVENT:
+            switch (event.window.event) {
+                case SDL_WINDOWEVENT_CLOSE:
+                    game->keep_running = false;
+                    break;
+                case SDL_WINDOWEVENT_SIZE_CHANGED:
+                    video_set_window(&game->menu.video, event.window.data1, event.window.data2);
+                    break;
+            }
+            break;
+    }
+
+    //Pass events to libretro core if core is running.
+    if (event_core && game->menu.state == RETRO_GAUNTLET_STATE_RUN_CORE) sdl_gl_if_handle_event(&game->sgci, event);
 }
 
 

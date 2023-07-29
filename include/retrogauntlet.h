@@ -19,6 +19,8 @@ You should have received a copy of the GNU General Public License along with Ret
 
 #include "libretro.h"
 
+#include <SDL.h>
+
 #define RETRO_GAUNTLET_VERSION "0.0.7"
 #define RETRO_GAUNTLET_LOGO "                           RETRO GAUNTLET 0.0.7"
 
@@ -54,6 +56,14 @@ You should have received a copy of the GNU General Public License along with Ret
 #define MAX_RETRO_GAUNTLET_CLIENTS 64
 
 #define IS_COMMENT_LINE(line) (strlen(line) == 0 || line[0] == '#' || line[0] == ';' || line[0] == '/')
+
+//Interface functions with retrogauntlet.
+bool retrogauntlet_initialize(const char *, SDL_Window *);
+bool retrogauntlet_quit();
+bool retrogauntlet_keep_running();
+bool retrogauntlet_fullscreen();
+bool retrogauntlet_sdl_event(const SDL_Event);
+bool retrogauntlet_frame_update();
 
 #endif
 

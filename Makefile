@@ -14,20 +14,27 @@ TARGET := retrogauntlet
 BUILD_DIR := ./build
 INCLUDE_DIR := ./include
 SOURCE_DIR := ./src
-USE_STEAM_RUNTIME = false
+#STEAMWORKS_SDK := /home/zuhli/git/steamsdk
 
 CC := gcc
 MKDIRP := mkdir -p
 RM := rm
+CP := cp
 CFLAGS := -O2 -g -Wall -Wextra -Wshadow -std=c99 -pedantic
 LDFLAGS := 
 
 # External dependencies.
 CFLAGS += -I$(INCLUDE_DIR)
-CFLAGS += -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE
+CFLAGS += -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE -DPOSIX
 
-ifeq ($(USE_STEAM_RUNTIME), true)
-    CFLAGS += -DUSE_STEAM_RUNTIME -D_BSD_SOURCE
+ALL_TARGETS := $(BUILD_DIR)/$(TARGET)
+
+ifneq ($(STEAMWORKS_SDK),)
+    CFLAGS += -DUSE_STEAM
+    CFLAGS += -I$(STEAMWORKS_SDK)/public
+    LDFLAGS += -L$(STEAMWORKS_SDK)/public/steam/lib/linux64 -L$(STEAMWORKS_SDK)/redistributable_bin/linux64
+    STEAM_API := libsteam_api.so
+    ALL_TARGETS += $(BUILD_DIR)/$(STEAM_API)
 endif
 
 ifeq ($(OS), Windows_NT)
@@ -49,7 +56,7 @@ OBJECTS := $(SOURCES:%=$(BUILD_DIR)/%.o)
 
 .PHONY: all clean
 
-all: $(BUILD_DIR)/$(TARGET)
+all: $(ALL_TARGETS)
 
 clean:
 	$(RM) -r $(BUILD_DIR)
@@ -60,4 +67,7 @@ $(BUILD_DIR)/$(TARGET): $(OBJECTS)
 $(BUILD_DIR)/%.c.o: %.c
 	$(MKDIRP) $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/$(STEAM_API): $(STEAMWORKS_SDK)/redistributable_bin/linux64/$(STEAM_API)
+	$(CP) -v $< $@
 
