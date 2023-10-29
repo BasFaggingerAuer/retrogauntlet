@@ -58,8 +58,8 @@ struct gauntlet_game {
     size_t i_gauntlet;
 
     //Variables related to networking.
-    struct client client;
-    struct host host;
+    void *client;
+    void *host;
     struct blowfish fish;
     struct gauntlet_player players[MAX_RETRO_GAUNTLET_CLIENTS + 1];
     int player_indices[MAX_RETRO_GAUNTLET_CLIENTS + 1];

@@ -75,7 +75,7 @@ bool game_player_give_points(struct gauntlet_game *game) {
     for (int i = 0; i <= MAX_RETRO_GAUNTLET_CLIENTS; ++i) {
         if (game->players[i].finish_state == RETRO_GAUNTLET_RUNNING) {
             if (i == 0) all_finished = false;
-            else if (i > 0 && game->host.clients[i - 1].sock >= 0) all_finished = false;
+            else if (i > 0 && host_is_client_active(game->host, i - 1)) all_finished = false;
         }
     }
     
@@ -95,7 +95,7 @@ bool game_player_give_points(struct gauntlet_game *game) {
     for (int i = 0; i <= MAX_RETRO_GAUNTLET_CLIENTS && i_points < nr_finish_points; ++i) {
         const int j = game->player_indices[i];
 
-        if (game->players[j].finish_state == RETRO_GAUNTLET_WON && game->players[j].finish_time > 0 && (j == 0 || game->host.clients[j - 1].sock >= 0)) {
+        if (game->players[j].finish_state == RETRO_GAUNTLET_WON && game->players[j].finish_time > 0 && (j == 0 || host_is_client_active(game->host, j - 1))) {
             game->players[j].points += (game->players[j].last_points = finish_points[i_points++]);
         }
         else {
@@ -118,7 +118,7 @@ bool game_player_apply_message(struct gauntlet_game *game, struct gauntlet_playe
     const uint16_t msg_type = *(uint16_t *)(p->data + 2);
     
     //Did we receive any invalid messages for a host?
-    if (game->host.sock >= 0) {
+    if (host_is_host_active(game->host)) {
         switch (msg_type) {
             case RETRO_GAUNTLET_MSG_NAME:
             case RETRO_GAUNTLET_MSG_FINISH:
@@ -158,8 +158,8 @@ bool game_player_apply_message(struct gauntlet_game *game, struct gauntlet_playe
             //Get ready to receive files, change sockets to blocking.
             game_draw_message_to_screen(game, "Receiving data from host...");
 
-            if (game->client.sock >= 0) client_set_blocking(&game->client, true);
-            break;    
+            if (client_is_client_active(game->client)) client_set_blocking(game->client, true);
+            break;
         case RETRO_GAUNTLET_MSG_FILE_START:
             //Start receiving file data.
             if (game->client_recv_fid || game->client_recv_file) {
@@ -225,7 +225,7 @@ bool game_player_apply_message(struct gauntlet_game *game, struct gauntlet_playe
     return true;
 }
 
-bool game_player_append_client_data(struct gauntlet_game *game, struct gauntlet_player *p, struct client *c) {
+bool game_player_append_client_data(struct gauntlet_game *game, struct gauntlet_player *p, void *c) {
     if (!p || !c || !game) {
         fprintf(ERROR_FILE, "game_player_append_client_data: Invalid game, player, or client!\n");
         return false;
@@ -233,32 +233,29 @@ bool game_player_append_client_data(struct gauntlet_game *game, struct gauntlet_
 
     const struct blowfish *b = &game->fish;
     
-    //Are we currently expecting a new message?
-    size_t i_buffer = 0;
-    
     //We want to process all data in the client's buffer.
-    while (i_buffer < c->nr_buffer) {
+    while (client_get_nr_data(c) > 0) {
         if (p->nr_data_expected == 0) {
+            //Try to complete the header of 8 bytes.
+            p->nr_data += client_get_data(p->data + p->nr_data, c, 8u - p->nr_data);
             assert(p->nr_data <= 8);
             
-            //Try to complete the header up to 8 bytes.
-            size_t nr_header = min(8u - p->nr_data, c->nr_buffer - i_buffer);
-
-            memcpy(p->data + p->nr_data, c->buffer + i_buffer, nr_header);
-            p->nr_data += nr_header;
-            i_buffer += nr_header;
-            
-            if (nr_header >= 8) {
+            if (p->nr_data == 8) {
                 //We have enough data to analyze the header.
                 blowfish_decrypt(b, (uint32_t *)(p->data + 0), (uint32_t *)(p->data + 4));
 
                 if (*(uint16_t *)(p->data + 0) != RETRO_GAUNTLET_NET_HEADER) {
-                    fprintf(ERROR_FILE, "player_append_client_data: Invalid header for network data from %s port %d!\n", c->addr_text, c->port);
+                    fprintf(ERROR_FILE, "player_append_client_data: Invalid header for network data from ");
+                    client_fprintf(ERROR_FILE, c);
+                    fprintf(ERROR_FILE, "!\n");
                     return false;
                 }
                 
                 if (*(uint16_t *)(p->data + 2) >= RETRO_GAUNTLET_MSG_MAX) {
-                    fprintf(WARN_FILE, "player_append_client_data: Invalid network message type from %s port %d!\n", c->addr_text, c->port);
+                    fprintf(ERROR_FILE, "player_append_client_data: Invalid network message type from ");
+                    client_fprintf(ERROR_FILE, c);
+                    fprintf(ERROR_FILE, "!\n");
+                    return false;
                 }
                 
                 p->nr_data_expected = *(uint32_t *)(p->data + 4);
@@ -267,19 +264,16 @@ bool game_player_append_client_data(struct gauntlet_game *game, struct gauntlet_
                 if (p->nr_data_expected >= MAX_RETRO_GAUNTLET_MSG_DATA ||
                     p->nr_data_expected < 8 ||
                     (p->nr_data_expected & 7) != 0) {
-                    fprintf(ERROR_FILE, "player_append_client_data: Invalid data size %zu from %s port %d!\n", p->nr_data_expected, c->addr_text, c->port);
+                    fprintf(ERROR_FILE, "player_append_client_data: Invalid data size %zu from ", p->nr_data_expected);
+                    client_fprintf(ERROR_FILE, c);
+                    fprintf(ERROR_FILE, "!\n");
                     return false;
                 }
             }
         }
         else {
             //Collect the expected data after the header.
-            size_t nr_body = min(p->nr_data_expected - p->nr_data, c->nr_buffer - i_buffer);
-
-            memcpy(p->data + p->nr_data, c->buffer + i_buffer, nr_body);
-            p->nr_data += nr_body;
-            i_buffer += nr_body;
-            
+            p->nr_data += client_get_data(p->data + p->nr_data, c, p->nr_data_expected - p->nr_data);
             assert(p->nr_data <= p->nr_data_expected);
 
             if (p->nr_data == p->nr_data_expected) {
@@ -293,7 +287,9 @@ bool game_player_append_client_data(struct gauntlet_game *game, struct gauntlet_
                 
                 //Apply message.
                 if (!game_player_apply_message(game, p)) {
-                    fprintf(ERROR_FILE, "player_append_client_data: Unable to apply message from %s port %d!\n", c->addr_text, c->port);
+                    fprintf(ERROR_FILE, "player_append_client_data: Unable to apply message from ");
+                    client_fprintf(ERROR_FILE, c);
+                    fprintf(ERROR_FILE, "!\n");
                     p->nr_data = 0;
                     p->nr_data_expected = 0;
                     return false;
@@ -307,10 +303,6 @@ bool game_player_append_client_data(struct gauntlet_game *game, struct gauntlet_
         }
     }
     
-    //Should have handled all the available data.
-    assert(i_buffer == c->nr_buffer);
-
-    c->nr_buffer = 0;
     return true;
 }
 
@@ -475,7 +467,7 @@ bool game_host_broadcast_file(struct gauntlet_game *game, const char *file) {
         return false;
     }
     
-    if (game->host.sock < 0) {
+    if (!host_is_host_active(game->host)) {
         fprintf(ERROR_FILE, "game_host_broadcast_file: Host is not running!\n");
         return false;
     }
@@ -586,8 +578,7 @@ bool create_game(struct gauntlet_game *game, const char *data_directory, SDL_Win
     game->i_gauntlet = 0;
 
     //Setup network.
-    create_client(&game->client);
-    free_host(&game->host);
+    allocate_clients(&game->client, 1);
     for (size_t i = 0; i <= MAX_RETRO_GAUNTLET_CLIENTS; ++i) create_player(&game->players[i]);
     strcpy(game->players[0].name, game->menu.player_name);
 
@@ -618,7 +609,7 @@ bool free_game(struct gauntlet_game *game) {
 
     //Free networking.
     free_host(&game->host);
-    free_client(&game->client);
+    free_clients(&game->client, 1);
     free_blowfish(&game->fish);
 
     //Free menu.
@@ -652,7 +643,7 @@ bool game_start_host(struct gauntlet_game *game) {
 
     strcpy(game->lobby_text, "Waiting for lobby update...");
 
-    if (!create_host(&game->host, game->menu.network_port, MAX_RETRO_GAUNTLET_CLIENTS)) {
+    if (!allocate_host(&game->host, game->menu.network_port, MAX_RETRO_GAUNTLET_CLIENTS)) {
         menu_draw_message(&game->menu, "Unable to host gauntlet!");
         return false;
     }
@@ -676,7 +667,7 @@ bool game_stop_host(struct gauntlet_game *game) {
 }
 
 bool game_host_start_gauntlet(struct gauntlet_game *game) {
-    if (!game || game->host.sock < 0) {
+    if (!game || !host_is_host_active(game->host)) {
         fprintf(ERROR_FILE, "game_host_start_gauntlet: Invalid game or host!\n");
         return false;
     }
@@ -769,25 +760,26 @@ bool game_update_host(struct gauntlet_game *game) {
     }
     
     //Gather data from clients and new connections.
-    if (game->host.sock < 0 || !host_listen(&game->host, 0)) {
+    if (!host_is_host_active(game->host) || !host_listen(game->host, 0)) {
         game_stop_host(game);
         menu_draw_message(&game->menu, "Host network error!");
         return false;
     }
 
-    for (int i = 0; i < game->host.max_clients; ++i) {
-        if (game->host.clients[i].sock >= 0) {
-            if (game->host.clients[i].newly_joined) {
-                //A new player has joined.
-                create_player(&game->players[i + 1]);
-                game->host.clients[i].newly_joined = 0;
-            }
+    int i = host_get_active_client_index(game->host, 0);
 
-            //Act on any data the clients provide.
-            if (!game_player_append_client_data(game, &game->players[i + 1], &game->host.clients[i])) {
-                host_remove_client(&game->host, i);
-            }
+    while (i >= 0) {
+        if (host_is_client_new(game->host, i)) {
+            //A new player has joined.
+            create_player(&game->players[i + 1]);
         }
+
+        //Act on any data the clients provide.
+        if (!game_player_append_client_data(game, &game->players[i + 1], host_get_client(game->host, i))) {
+            host_remove_client(&game->host, i);
+        }
+
+        i = host_get_active_client_index(game->host, i + 1);
     }
 
     return true;
@@ -856,14 +848,14 @@ bool game_start_client(struct gauntlet_game *game, const char *host_name) {
     strcpy(game->lobby_text, "Waiting for lobby update...");
     
     //Create new client.
-    if (!create_client(&game->client)) {
+    if (!allocate_clients(&game->client, 1)) {
         menu_draw_message(&game->menu, "Unable to create client!");
         return false;
     }
     
     //Connect to host.
     if (!client_connect_to_host(&game->client, host_name, game->menu.network_port)) {
-        free_client(&game->client);
+        free_clients(&game->client, 1);
         menu_draw_message(&game->menu, "Unable to join host %s at port %d!", host_name, game->menu.network_port);
         return false;
     }
@@ -896,7 +888,7 @@ bool game_stop_client(struct gauntlet_game *game) {
     game->client_recv_file = NULL;
 
     game_stop_gauntlet(game);
-    free_client(&game->client);
+    free_clients(&game->client, 1);
     game->menu.state = RETRO_GAUNTLET_STATE_SELECT_GAUNTLET;
 
     return true;
@@ -909,7 +901,7 @@ bool game_update_client(struct gauntlet_game *game) {
     }
     
     //Receive data.
-    if (game->client.sock < 0 || !client_listen(&game->client, 0)) {
+    if (!client_is_client_active(game->client) || !client_listen(&game->client, 0)) {
         game_stop_client(game);
         menu_draw_message(&game->menu, "Connection to host lost!");
     }
@@ -951,7 +943,7 @@ void game_update_lobby_text(struct gauntlet_game *game) {
     if (!game) return;
     
     //If we are a client we will receive the lobby from the host.
-    if (game->host.sock < 0) return;
+    if (!host_is_host_active(game->host)) return;
 
     //If we are the host, update the lobby state and send this out regularly.
     strcpy(game->lobby_text, "Lobby:\n");
@@ -961,7 +953,7 @@ void game_update_lobby_text(struct gauntlet_game *game) {
     for (int i = 0; i <= MAX_RETRO_GAUNTLET_CLIENTS; ++i) {
         const int j = game->player_indices[i];
 
-        if (j == 0 || game->host.clients[j - 1].sock >= 0) player_strncat(game->lobby_text, &game->players[j], NR_RETRO_GAUNTLET_MENU_TEXT);
+        if (j == 0 || host_is_client_active(game->host, j - 1)) player_strncat(game->lobby_text, &game->players[j], NR_RETRO_GAUNTLET_MENU_TEXT);
     }
     
     //Send out lobby updates at ~4 [Hz].
@@ -1112,13 +1104,16 @@ void game_update_menu_text(struct gauntlet_game *game) {
             break;
         case RETRO_GAUNTLET_STATE_LOBBY_HOST:
             strcpy(game->menu.text, "<ESC>   : Stop hosting\n<Arrows>: Select gauntlet\n<R>     : Select random gauntlet\n<G>     : Run gauntlet multi player\n<F>     : Toggle fullscreen\n\n");
-            sprintf(game->menu.text + strlen(game->menu.text), "Hosting at local address %s port %d (%d/%d players have joined).\n\n", game->host.addr_text, game->host.port, game->host.nr_clients, game->host.max_clients);
+            sprintf(game->menu.text + strlen(game->menu.text), "Hosting at local address ");
+            host_sprintf(game->menu.text + strlen(game->menu.text), game->host);
+            sprintf(game->menu.text + strlen(game->menu.text), ".\n\n");
             sprintf(game->menu.text + strlen(game->menu.text), "%s:\n%s\n%s\n\n", game->gauntlets[game->i_gauntlet].title, game->gauntlets[game->i_gauntlet].description, game->gauntlets[game->i_gauntlet].controls);
             if (strlen(game->menu.text) + strlen(game->lobby_text) + 1 < NR_RETRO_GAUNTLET_MENU_TEXT) strcat(game->menu.text, game->lobby_text);
             break;
         case RETRO_GAUNTLET_STATE_LOBBY_CLIENT:
-            sprintf(game->menu.text, "Joined %s port %d.\n", game->client.addr_text, game->client.port);
-            strcat(game->menu.text, "<ESC>   : Leave lobby\n<F>     : Toggle fullscreen\n\n");
+            sprintf(game->menu.text, "Joined ");
+            client_sprintf(game->menu.text + strlen(game->menu.text), game->client);
+            strcat(game->menu.text, "\n<ESC>   : Leave lobby\n<F>     : Toggle fullscreen\n\n");
             if (strlen(game->menu.text) + strlen(game->lobby_text) + 1 < NR_RETRO_GAUNTLET_MENU_TEXT) strcat(game->menu.text, game->lobby_text);
             break;
         default:
@@ -1133,7 +1128,7 @@ void game_update(struct gauntlet_game *game) {
     if (!game) return;
     
     //Always perform host updates.
-    if (game->host.sock >= 0) {
+    if (host_is_host_active(game->host)) {
         game_update_host(game);
         game_player_give_points(game);
         game_update_lobby_text(game);
@@ -1154,13 +1149,13 @@ void game_update(struct gauntlet_game *game) {
             const uint32_t t = game->gauntlet.end_time - game->gauntlet.start_time;
             const uint32_t pt = game->gauntlet.par_time;
             
-            if (game->host.sock >= 0) game->menu.state = RETRO_GAUNTLET_STATE_LOBBY_HOST;
-            else if (game->client.sock >= 0) game->menu.state = RETRO_GAUNTLET_STATE_LOBBY_CLIENT;
+            if (host_is_host_active(game->host)) game->menu.state = RETRO_GAUNTLET_STATE_LOBBY_HOST;
+            else if (client_is_client_active(game->client)) game->menu.state = RETRO_GAUNTLET_STATE_LOBBY_CLIENT;
             else game->menu.state = RETRO_GAUNTLET_STATE_SELECT_GAUNTLET;
 
             const bool win = (game->gauntlet.status == RETRO_GAUNTLET_WON);
             
-            if (game->host.sock < 0 && game->client.sock < 0) {
+            if (!host_is_host_active(game->host) && !client_is_client_active(game->client)) {
                 switch (game->gauntlet.status) {
                     case RETRO_GAUNTLET_WON:
                         menu_draw_message(&game->menu, "You won!\n\nTime %02u:%02u:%02u.%03u (par %02u:%02u:%02u.%03u)\n",
@@ -1179,15 +1174,15 @@ void game_update(struct gauntlet_game *game) {
             game->players[0].finish_state = game->gauntlet.status;
             game->players[0].finish_time = t;
 
-            if (game->client.sock >= 0) {
+            if (client_is_client_active(game->client)) {
                 //Update host the we completed the gauntlet.
                 client_send(&game->client, game->message_buffer,
                     game_create_net_message_finish(game, game->players[0].finish_state, game->players[0].finish_time));
             }
             
-            if (game->host.sock >= 0) {
+            if (host_is_host_active(game->host)) {
                 //Accept new connections again.
-                game->host.accepts_clients = 1;
+                host_set_accepts_clients(game->host, true);
             }
 
             game_stop_gauntlet(game);
@@ -1207,7 +1202,7 @@ void game_update(struct gauntlet_game *game) {
     }
     else {
         //Client network updates are performed only when we are not running a core.
-        if (game->client.sock >= 0) game_update_client(game);
+        if (client_is_client_active(game->client)) game_update_client(game);
         
         //Update menu text.
         game_update_menu_text(game);
@@ -1273,8 +1268,8 @@ bool game_stop_gauntlet(struct gauntlet_game *game) {
     free_gauntlet(&game->gauntlet);
 
     //Set networking to be blocking.
-    if (game->client.sock >= 0) client_set_blocking(&game->client, true);
-    if (game->host.sock >= 0) host_set_blocking(&game->host, true);
+    if (client_is_client_active(game->client)) client_set_blocking(game->client, true);
+    if (host_is_host_active(game->host)) host_set_blocking(game->host, true);
 
     return true;
 }
@@ -1297,8 +1292,8 @@ bool game_start_gauntlet(struct gauntlet_game *game, const char *gauntlet_ini_fi
     fprintf(INFO_FILE, "Opened gauntlet '%s' from '%s'.\n", game->gauntlet.title, gauntlet_ini_file);
 
     //Set networking to be non-blocking.
-    if (game->client.sock >= 0) client_set_blocking(&game->client, false);
-    if (game->host.sock >= 0) host_set_blocking(&game->host, false);
+    if (client_is_client_active(game->client)) client_set_blocking(game->client, false);
+    if (host_is_host_active(game->host)) host_set_blocking(game->host, false);
 
     SDL_SetRelativeMouseMode(SDL_TRUE);
     SDL_ShowCursor(SDL_DISABLE);
@@ -1551,7 +1546,7 @@ void game_sdl_event(struct gauntlet_game *game, const SDL_Event event) {
                     switch (event.key.keysym.sym) {
                         case SDLK_PAUSE:
                             //Go to memory monitoring mode.
-                            if (game->host.sock < 0 && game->client.sock < 0) {
+                            if (!host_is_host_active(game->host) && !client_is_client_active(game->client)) {
                                 SDL_PauseAudioDevice(game->sgci.audio_device_id, 1);
                                 game->menu.state = RETRO_GAUNTLET_STATE_SETUP_GAUNTLET;
                             }
