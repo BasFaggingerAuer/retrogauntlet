@@ -190,8 +190,8 @@ bool allocate_clients(void **_c, const size_t nr_clients) {
 bool client_is_client_active(void *_c) {
     struct client *c = (struct client *)_c;
 
-    if (!c) {
-        fprintf(WARN_FILE, "client_is_client_active: Invalid client!\n");
+    if (!_c) {
+        //fprintf(WARN_FILE, "client_is_client_active: Invalid client!\n");
         return false;
     }
     
@@ -201,7 +201,7 @@ bool client_is_client_active(void *_c) {
 bool client_is_client_new(void *_c) {
     struct client *c = (struct client *)_c;
 
-    if (!c) {
+    if (!_c) {
         fprintf(WARN_FILE, "client_is_client_new: Invalid client!\n");
         return false;
     }
@@ -286,7 +286,7 @@ bool client_connect_to_host(void *_c, const char *address, const int port) {
 bool client_listen(void *_c, const int time_out_ms) {
     struct client *c = (struct client *)_c;
 
-    if (!c || c->sock < 0) {
+    if (!_c || c->sock < 0) {
         fprintf(ERROR_FILE, "client_listen: Invalid client!\n");
         return false;
     }
@@ -341,7 +341,7 @@ bool client_listen(void *_c, const int time_out_ms) {
 bool client_send(void *_c, const void *buffer, size_t len) {
     struct client *c = (struct client *)_c;
 
-    if (!c || c->sock < 0 || !buffer || len == 0) {
+    if (!_c || c->sock < 0 || !buffer || len == 0) {
         fprintf(ERROR_FILE, "client_send: Invalid client or buffer!\n");
         return false;
     }
@@ -369,7 +369,7 @@ bool client_send(void *_c, const void *buffer, size_t len) {
 bool client_set_blocking(void *_c, const bool blocking) {
     struct client *c = (struct client *)_c;
 
-    if (!c || c->sock < 0) {
+    if (!_c || c->sock < 0) {
         fprintf(ERROR_FILE, "client_set_blocking: Invalid client!\n");
         return false;
     }
@@ -387,7 +387,7 @@ bool client_set_blocking(void *_c, const bool blocking) {
 size_t client_get_nr_data(void *_c) {
     struct client *c = (struct client *)_c;
 
-    if (!c || c->sock < 0) {
+    if (!_c || c->sock < 0) {
         fprintf(ERROR_FILE, "client_get_nr_data: Invalid client!\n");
         return 0;
     }
@@ -427,7 +427,7 @@ size_t client_get_data(void *dest, void *_c, size_t nr) {
 void client_fprintf(FILE *file, void *_c) {
     struct client *c = (struct client *)_c;
 
-    if (!c || !file) return;
+    if (!_c || !file) return;
 
     fprintf(file, "%s:%d", c->addr_text, c->port);
 }
@@ -435,7 +435,7 @@ void client_fprintf(FILE *file, void *_c) {
 int client_sprintf(char *str, void *_c) {
     struct client *c = (struct client *)_c;
 
-    if (!c || !str) return 0;
+    if (!_c || !str) return 0;
 
     return sprintf(str, "%s:%d", c->addr_text, c->port);
 }
@@ -449,12 +449,12 @@ bool free_host(void **_h) {
     struct host *h = (struct host *)(*_h);
 
     if (h->clients) {
-        free_clients((void *)&h->clients, h->max_clients);
+        free_clients((void **)&h->clients, h->max_clients);
     }
 
     if (h->sock >= 0) close_socket_gen(h->sock);
 
-    free(h);
+    free(*_h);
     *_h = NULL;
     
     return true;
@@ -617,7 +617,7 @@ bool host_send(void *_h, void *_c, const void *buffer, size_t len) {
     struct host *h = (struct host *)_h;
     struct client *c = (struct client *)_c;
     
-    if (!h || h->sock < 0 || !c || c->sock < 0 || !buffer || len == 0) {
+    if (!_h || h->sock < 0 || !_c || c->sock < 0 || !buffer || len == 0) {
         fprintf(ERROR_FILE, "host_send: Invalid host or client or buffer!\n");
         return false;
     }
@@ -645,7 +645,7 @@ bool host_send(void *_h, void *_c, const void *buffer, size_t len) {
 bool host_broadcast(void *_h, const void *buffer, const size_t len) {
     struct host *h = (struct host *)_h;
 
-    if (!h || h->sock < 0 || !h->clients || !buffer || len == 0) {
+    if (!_h || h->sock < 0 || !h->clients || !buffer || len == 0) {
         fprintf(ERROR_FILE, "host_broadcast: Invalid host or buffer!\n");
         return false;
     }
@@ -664,7 +664,7 @@ bool host_broadcast(void *_h, const void *buffer, const size_t len) {
 bool host_listen(void *_h, const int time_out_ms) {
     struct host *h = (struct host *)_h;
 
-    if (!h || h->sock < 0 || !h->clients) {
+    if (!_h || h->sock < 0 || !h->clients) {
         fprintf(ERROR_FILE, "host_listen: Invalid or non-listening host!\n");
         return false;
     }
@@ -780,7 +780,7 @@ bool host_listen(void *_h, const int time_out_ms) {
 bool host_remove_client(void *_h, const int i) {
     struct host *h = (struct host *)_h;
 
-    if (!h || i < 0 || i >= h->max_clients) {
+    if (!_h || i < 0 || i >= h->max_clients) {
         fprintf(ERROR_FILE, "host_remove_client: Invalid host or client index!\n");
         return false;
     }
@@ -802,12 +802,12 @@ bool host_remove_client(void *_h, const int i) {
 }
 
 bool host_is_host_active(void *_h) {
-    struct host *h = (struct host *)_h;
-
-    if (!h) {
+    if (!_h) {
         //fprintf(WARN_FILE, "host_is_host_active: Invalid host!\n");
         return false;
     }
+
+    struct host *h = (struct host *)_h;
     
     return (h->sock >= 0);
 }
@@ -815,7 +815,7 @@ bool host_is_host_active(void *_h) {
 bool host_is_client_active(void *_h, const int i) {
     struct host *h = (struct host *)_h;
 
-    if (!h || i < 0 || i >= h->max_clients) {
+    if (!_h || i < 0 || i >= h->max_clients) {
         fprintf(WARN_FILE, "host_is_client_active: Invalid host or client index!\n");
         return false;
     }
@@ -826,7 +826,7 @@ bool host_is_client_active(void *_h, const int i) {
 bool host_is_client_new(void *_h, const int i) {
     struct host *h = (struct host *)_h;
 
-    if (!h || i < 0 || i >= h->max_clients) {
+    if (!_h || i < 0 || i >= h->max_clients) {
         fprintf(WARN_FILE, "host_is_client_new: Invalid host or client index!\n");
         return false;
     }
@@ -837,7 +837,7 @@ bool host_is_client_new(void *_h, const int i) {
 bool host_set_blocking(void *_h, const bool blocking) {
     struct host *h = (struct host *)_h;
 
-    if (!h || h->sock < 0) {
+    if (!_h || h->sock < 0) {
         fprintf(ERROR_FILE, "host_set_blocking: Invalid host!\n");
         return false;
     }
@@ -863,7 +863,7 @@ bool host_set_blocking(void *_h, const bool blocking) {
 bool host_set_accepts_clients(void *_h, const bool accepts) {
     struct host *h = (struct host *)_h;
 
-    if (!h || h->sock < 0) {
+    if (!_h || h->sock < 0) {
         fprintf(ERROR_FILE, "host_set_accepts_clients: Invalid host!\n");
         return false;
     }
@@ -875,7 +875,7 @@ bool host_set_accepts_clients(void *_h, const bool accepts) {
 int host_get_active_client_index(void *_h, int i) {
     struct host *h = (struct host *)_h;
 
-    if (!h || h->sock < 0) {
+    if (!_h || h->sock < 0) {
         fprintf(ERROR_FILE, "host_get_nr_clients: Invalid host!\n");
         return -1;
     }
@@ -896,7 +896,7 @@ int host_get_active_client_index(void *_h, int i) {
 void *host_get_client(void *_h, int i) {
     struct host *h = (struct host *)_h;
 
-    if (!h || h->sock < 0 || i < 0 || i >= h->max_clients) {
+    if (!_h || h->sock < 0 || i < 0 || i >= h->max_clients) {
         fprintf(ERROR_FILE, "host_get_client: Invalid host or client index!\n");
         return NULL;
     }
@@ -907,7 +907,7 @@ void *host_get_client(void *_h, int i) {
 void host_fprintf(FILE *file, void *_h) {
     struct host *h = (struct host *)_h;
 
-    if (!h || !file) return;
+    if (!_h || !file) return;
 
     fprintf(file, "%s:%d (%d/%d)", h->addr_text, h->port, h->nr_clients, h->max_clients);
 }
@@ -915,7 +915,7 @@ void host_fprintf(FILE *file, void *_h) {
 int host_sprintf(char *str, void *_h) {
     struct host *h = (struct host *)_h;
 
-    if (!h || !str) return 0;
+    if (!_h || !str) return 0;
 
     return sprintf(str, "%s:%d (%d/%d)", h->addr_text, h->port, h->nr_clients, h->max_clients);
 }
