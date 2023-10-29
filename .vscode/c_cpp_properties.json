@@ -1,0 +1,25 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "compileCommands": "${workspaceFolder}/build/compile_commands.json",
+            "includePath": [
+                "${workspaceFolder}/include"
+            ],
+            "defines": [
+                "__linux__",
+                "__x86_64__",
+                "_GNU_SOURCE",
+                "_POSIX_C_SOURCE=200809L",
+                "_DEFAULT_SOURCE",
+                "__USE_XOPEN2K",
+                "_POSIX"
+            ],
+            "compilerPath": "/usr/bin/gcc",
+            "cStandard": "gnu17",
+            "cppStandard": "gnu++17",
+            "intelliSenseMode": "${default}"
+        }
+    ],
+    "version": 4
+}
