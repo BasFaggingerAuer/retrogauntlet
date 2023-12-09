@@ -15,12 +15,13 @@ TARGET_STEAM := retrogauntletsteam
 BUILD_DIR := ./build
 INCLUDE_DIR := ./include
 SOURCE_DIR := ./src
-STEAMWORKS_SDK := /home/zuhli/git/steamsdk
+STEAMWORKS_SDK := 
+# STEAMWORKS_SDK := /home/zuhli/git/steamsdk
 
 # Dependencies of the targets.
-RG_SOURCES := src/files.c src/core.c src/retrogauntlet.c src/net.c src/menu.c src/sdlglcoreinterface.c src/stringextra.c src/glcheck.c src/ini.c src/gauntletgame.c src/gauntlet.c src/blowfish.c src/glvideo.c
-TARGET_SOURCES := $(RG_SOURCES) src/main.c
-TARGET_STEAM_SOURCES := $(RG_SOURCES) src/mainsteam.cpp
+RG_SOURCES := src/files.c src/core.c src/retrogauntlet.c src/menu.c src/sdlglcoreinterface.c src/stringextra.c src/glcheck.c src/ini.c src/gauntletgame.c src/gauntlet.c src/blowfish.c src/glvideo.c
+TARGET_SOURCES := $(RG_SOURCES) src/main.c src/net.c
+TARGET_STEAM_SOURCES := $(RG_SOURCES) src/mainsteam.cpp src/netsteam.cpp
 
 # Tools.
 CC := gcc

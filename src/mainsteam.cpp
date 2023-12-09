@@ -85,7 +85,7 @@ int main(int argc, char **argv) {
         return EXIT_FAILURE;
     }
 
-    fprintf(INFO_FILE, "Connected to steam as %s.\n", SteamFriends()->GetPersonaName());
+    fprintf(INFO_FILE, "Connected to steam as %s (%llu).\n", SteamFriends()->GetPersonaName(), SteamUser()->GetSteamID().ConvertToUint64());
 
     //TODO: Steam +connect ipaddress:port and +connect_lobby lobbyid parameter parsing.
     //TODO: Support SteamApps()->GetLaunchCommandLine() for joining servers/lobbies.

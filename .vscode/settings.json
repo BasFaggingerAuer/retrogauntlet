@@ -1,6 +1,7 @@
 {
     "files.associations": {
         "netdb.h": "c",
-        "retrogauntlet.h": "c"
+        "retrogauntlet.h": "c",
+        "string": "cpp"
     }
 }

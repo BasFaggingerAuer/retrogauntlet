@@ -508,7 +508,7 @@ bool allocate_host(void **_h, const int port, const int max_clients) {
     h->max_clients = max(1, max_clients);
     h->nr_clients = 0;
 
-    if (!allocate_clients((void *)&h->clients, h->max_clients)) {
+    if (!allocate_clients((void **)&h->clients, h->max_clients)) {
         fprintf(ERROR_FILE, "allocate_host: Unable to allocate clients!");
         return false;
     }
