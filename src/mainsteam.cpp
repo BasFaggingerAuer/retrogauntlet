@@ -140,6 +140,8 @@ int main(int argc, char **argv) {
     if (!retrogauntlet_initialize(data_directory, window)) {
         return EXIT_FAILURE;
     }
+
+    SteamAPI_RunCallbacks();
     
     //Main loop.
     bool keep_running = true;
@@ -174,6 +176,7 @@ int main(int argc, char **argv) {
             SDL_SetWindowFullscreen(window, fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
         }
 
+        SteamAPI_RunCallbacks();
         retrogauntlet_frame_update();
     }
     

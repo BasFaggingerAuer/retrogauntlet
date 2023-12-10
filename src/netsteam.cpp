@@ -11,6 +11,7 @@ You should have received a copy of the GNU General Public License along with Ret
 //This is a replacement of the sockets networking implementation in net.c using the ISteamNetworkingSockets interface, see https://partner.steamgames.com/doc/api/ISteamNetworkingSockets.
 
 #include <string>
+#include <memory>
 
 #include <steam/isteamnetworkingsockets.h>
 #include <steam/isteamnetworkingutils.h>
@@ -19,6 +20,7 @@ You should have received a copy of the GNU General Public License along with Ret
 #include <steam/isteamuser.h>
 #include <steam/isteamfriends.h>
 #include <steam/steam_api_common.h>
+#include <steam/steam_api.h>
 
 #include <cstdio>
 #include <unistd.h>
@@ -44,6 +46,14 @@ struct client {
     bool newly_joined;
     bool blocking;
     bool active;
+    bool callbacks;
+
+    //STEAM_CALLBACK(client, OnLobbyGameCreated, LobbyGameCreated_t);
+    STEAM_CALLBACK(client, OnGameJoinRequested, GameRichPresenceJoinRequested_t);
+    //STEAM_CALLBACK(client, OnNewUrlLaunchParameters, NewUrlLaunchParameters_t);
+    STEAM_CALLBACK(client, OnNetConnectionStatusChanged, SteamNetConnectionStatusChangedCallback_t);
+    STEAM_CALLBACK(client, OnIPCFailure, IPCFailure_t);
+    STEAM_CALLBACK(client, OnSteamShutdown, SteamShutdown_t);
 };
 
 struct host {
@@ -57,8 +67,9 @@ struct host {
     bool blocking;
     bool active;
 
-    //TODO: STEAM_GAMESERVER_CALLBACK(CSpaceWarServer, OnNetConnectionStatusChanged, SteamNetConnectionStatusChangedCallback_t);
-    //TODO: STEAM_GAMESERVER_CALLBACK( CSpaceWarServer, OnValidateAuthTicketResponse, ValidateAuthTicketResponse_t );
+    STEAM_CALLBACK(host, OnNetConnectionStatusChanged, SteamNetConnectionStatusChangedCallback_t);
+    STEAM_CALLBACK(host, OnIPCFailure, IPCFailure_t);
+    STEAM_CALLBACK(host, OnSteamShutdown, SteamShutdown_t);
 };
 
 extern "C" bool __cdecl net_init() {
@@ -91,12 +102,20 @@ bool reset_client(void *_c) {
         SteamGameServerNetworkingSockets()->CloseConnection(c->sock, 0, nullptr, false);
         SteamUser()->AdvertiseGame(k_steamIDNil, 0, 0);
     }
+
+    //Destroy client object to get rid of steam callbacks.
+    if (c->active && c->callbacks) {
+        std::allocator<client> alloc;
+
+        alloc.destroy(c);
+    }
     
     memset(c, 0, sizeof(struct client));
     c->id = CSteamID();
     c->sock = k_HSteamNetConnection_Invalid;
     c->blocking = true;
     c->active = false;
+    c->callbacks = false;
     c->nr_buffer = 0;
 
     return true;
@@ -179,13 +198,29 @@ extern "C" bool __cdecl client_connect_to_host(void *_c, const char *address, co
     
     reset_client(c);
 
-    //FIXME: Use address as Steam friend name for now to connect (must be a better way to do this...).
-    //OnGameJoinRequested( GameRichPresenceJoinRequested_t *pCallback )
-    //https://stackoverflow.com/questions/75622790/steamworks-sdk-isteamnetworkingsockets-connectp2p
+    //FIXME: Use address as Steam friend SteamID for now to connect (must be a better way to do this...).
+    CSteamID host_id(std::stoull(std::string(address)));
+
+    if (!host_id.IsValid()) {
+        fprintf(ERROR_FILE, "client_connect_to_host: Invalid address %s, should be a valid SteamID!\n", address);
+        return false;
+    }
+
+    //Register object for steam callbacks.
+    std::allocator<client> alloc;
+
+    alloc.construct(c);
+    c->callbacks = true;
+    
     SteamNetworkingIdentity identity;
 
     memset(&identity, 0, sizeof(SteamNetworkingIdentity));
     identity.m_eType = k_ESteamNetworkingIdentityType_SteamID;
+    identity.SetSteamID(host_id);
+
+    /*
+    //Do we need this?
+    //https://stackoverflow.com/questions/75622790/steamworks-sdk-isteamnetworkingsockets-connectp2p
     bool found = false;
 
     const int nr_friends = SteamFriends()->GetFriendCount(k_EFriendFlagFriendshipRequested | k_EFriendFlagRequestingFriendship);
@@ -204,11 +239,13 @@ extern "C" bool __cdecl client_connect_to_host(void *_c, const char *address, co
         fprintf(ERROR_FILE, "client_connect_to_host: Unable to find Steam friend %s!\n", address);
         return false;
     }
+    */
 
     c->sock = SteamNetworkingSockets()->ConnectP2P(identity, 0, 0, nullptr);
 
     if (c->sock == k_HSteamNetConnection_Invalid) {
         fprintf(ERROR_FILE, "client_connect_to_host: Unable to connect P2P to %s!\n", address);
+        reset_client(c);
         return false;
     }
 
@@ -216,9 +253,51 @@ extern "C" bool __cdecl client_connect_to_host(void *_c, const char *address, co
 
     c->active = true;
     c->newly_joined = true;
-    
+
     fprintf(INFO_FILE, "client_connect_to_host: Connected to %s (%llu).\n", address, identity.GetSteamID().ConvertToUint64());
     return true;
+}
+
+void client::OnNetConnectionStatusChanged(SteamNetConnectionStatusChangedCallback_t *callback) {
+    if ((callback->m_eOldState == k_ESteamNetworkingConnectionState_Connecting ||
+         callback->m_eOldState == k_ESteamNetworkingConnectionState_Connected) &&
+        callback->m_info.m_eState == k_ESteamNetworkingConnectionState_ClosedByPeer) {
+        fprintf(ERROR_FILE, "client::OnNetConnectionStatusChanged: Host rejected our connection attempt!\n");
+        reset_client(this);
+        return;
+    }
+
+    if ((callback->m_eOldState == k_ESteamNetworkingConnectionState_Connecting ||
+         callback->m_eOldState == k_ESteamNetworkingConnectionState_Connected) &&
+        callback->m_info.m_eState == k_ESteamNetworkingConnectionState_ProblemDetectedLocally) {
+        fprintf(ERROR_FILE, "client::OnNetConnectionStatusChanged: Lost connection to host!\n");
+        reset_client(this);
+        return;
+    }
+
+    if (callback->m_eOldState == k_ESteamNetworkingConnectionState_Connecting &&
+        callback->m_info.m_eState == k_ESteamNetworkingConnectionState_Connected) {
+        fprintf(INFO_FILE, "client::OnNetConnectionStatusChanged: Connection was accepted by host.\n");
+        return;
+    }
+}
+
+void client::OnGameJoinRequested(GameRichPresenceJoinRequested_t *callback) {
+    //Act on game join request via Steam.
+    fprintf(INFO_FILE, "client::OnGameJoinRequested: Requesting to join game from %s.\n", SteamFriends()->GetFriendPersonaName(callback->m_steamIDFriend));
+
+    //FIXME: Should not tie this to a client()-instance --> need to separate out higher-level callbacks.
+    client_connect_to_host(this, std::to_string(callback->m_steamIDFriend.ConvertToUint64()).c_str(), 0);
+}
+
+void client::OnIPCFailure(IPCFailure_t *callback) {
+    fprintf(ERROR_FILE, "client::OnIPCFailure: Steam IPC failure!\n");
+    reset_client(this);
+}
+
+void client::OnSteamShutdown(SteamShutdown_t *callback) {
+    fprintf(ERROR_FILE, "client::OnSteamShutdown: Steam is shutting down!\n");
+    reset_client(this);
 }
 
 extern "C" bool __cdecl client_listen(void *_c, const int) {
@@ -228,6 +307,9 @@ extern "C" bool __cdecl client_listen(void *_c, const int) {
         fprintf(ERROR_FILE, "client_listen: Invalid client!\n");
         return false;
     }
+
+    //Run callbacks.
+    SteamNetworkingSockets()->RunCallbacks();
 
     //Any data from the host?
     SteamNetworkingMessage_t *messages[NR_CLIENT_STEAM_MESSAGES];
@@ -339,6 +421,11 @@ extern "C" bool __cdecl free_host(void **_h) {
         }
     }
 
+    //De-register object for steam callbacks.
+    std::allocator<host> alloc;
+
+    alloc.destroy(h);
+
     free(*_h);
     *_h = NULL;
 
@@ -358,6 +445,12 @@ extern "C" bool __cdecl allocate_host(void **_h, const int port, const int max_c
 
     memset(h, 0, sizeof(struct host));
 
+    //Register object for steam callbacks.
+    //FIXME: This is rather horrendous, better to move this to a proper constructor.
+    std::allocator<host> alloc;
+
+    alloc.construct(h);
+    
     h->blocking = true;
     h->accepts_clients = true;
     h->port = port;
@@ -365,6 +458,7 @@ extern "C" bool __cdecl allocate_host(void **_h, const int port, const int max_c
     
     h->max_clients = max(1, max_clients);
     h->nr_clients = 0;
+    h->sock = k_HSteamNetConnection_Invalid;
 
     if (!allocate_clients((void **)&h->clients, h->max_clients)) {
         fprintf(ERROR_FILE, "allocate_host: Unable to allocate clients!");
@@ -403,11 +497,93 @@ extern "C" bool __cdecl allocate_host(void **_h, const int port, const int max_c
     //Start listening for incoming connections.
     h->sock = SteamGameServerNetworkingSockets()->CreateListenSocketP2P(0, 0, nullptr);
     h->poll_group = SteamGameServerNetworkingSockets()->CreatePollGroup();
+    
+    if (h->sock == k_HSteamNetConnection_Invalid) {
+        fprintf(ERROR_FILE, "allocate_host: Unable to open listening socket!\n");
+        return false;
+    }
+
     h->active = true;
 
     fprintf(INFO_FILE, "Host is listening at network port %d...\n", port);
     
     return true;
+}
+
+void host::OnNetConnectionStatusChanged(SteamNetConnectionStatusChangedCallback_t *callback) {
+    //Any new connecting clients?
+    if (callback->m_info.m_hListenSocket &&
+        callback->m_eOldState == k_ESteamNetworkingConnectionState_None &&
+        callback->m_info.m_eState == k_ESteamNetworkingConnectionState_Connecting) {
+        
+        if (!this->accepts_clients || this->nr_clients >= this->max_clients) {
+            fprintf(INFO_FILE, "host::OnNetConnectionStatusChanged: Unable to accept connection as we are at the maximum number of clients %d/%d or not accepting new clients!\n", this->nr_clients, this->max_clients);
+            SteamGameServerNetworkingSockets()->CloseConnection(callback->m_hConn, k_ESteamNetConnectionEnd_AppException_Generic, "Server full or not accepting new clients!", false);
+        }
+        else {
+            EResult result = SteamGameServerNetworkingSockets()->AcceptConnection(callback->m_hConn);
+
+            if (result != k_EResultOK) {
+                fprintf(INFO_FILE, "host::OnNetConnectionStatusChanged: Unable to accept incoming connection: %d!\n", result);
+                SteamGameServerNetworkingSockets()->CloseConnection(callback->m_hConn, k_ESteamNetConnectionEnd_AppException_Generic, "Unable to accept connection!", false);
+            }
+            else {
+                SteamGameServerNetworkingSockets()->SetConnectionPollGroup(callback->m_hConn, this->poll_group);
+
+                int i_client;
+                
+                for (i_client = 0; i_client < this->max_clients; i_client++) {
+                    if (!this->clients[i_client].active) break;
+                }
+
+                if (i_client >= this->max_clients) {
+                    fprintf(ERROR_FILE, "host::OnNetConnectionStatusChanged: This should never happen!\n");
+                    return;
+                }
+
+                memset(&this->clients[i_client], 0, sizeof(struct client));
+
+                this->clients[i_client].id = callback->m_info.m_identityRemote.GetSteamID();
+                this->clients[i_client].sock = callback->m_hConn;
+                this->clients[i_client].newly_joined = true;
+                this->clients[i_client].callbacks = false;
+                this->clients[i_client].active = true;
+
+                fprintf(INFO_FILE, "Accepted connection from %s (%llu), now at %d/%d clients.\n", SteamFriends()->GetFriendPersonaName(this->clients[i_client].id), this->clients[i_client].id.ConvertToUint64(), this->nr_clients, this->max_clients);
+            }
+        }
+    }
+
+    //Any disconnected clients?
+    if ((callback->m_eOldState == k_ESteamNetworkingConnectionState_Connecting ||
+         callback->m_eOldState == k_ESteamNetworkingConnectionState_Connected) &&
+        (callback->m_info.m_eState == k_ESteamNetworkingConnectionState_ClosedByPeer ||
+         callback->m_info.m_eState == k_ESteamNetworkingConnectionState_ProblemDetectedLocally)) {
+        int i_client;
+        
+        for (i_client = 0; i_client < this->max_clients; i_client++) {
+            if (this->clients[i_client].active && this->clients[i_client].id == callback->m_info.m_identityRemote.GetSteamID()) break;
+        }
+
+        if (i_client >= this->max_clients) {
+            fprintf(WARN_FILE, "host::OnNetConnectionStatusChanged: Received disconnect from unconnected client!\n");
+            return;
+        }
+        else {
+            fprintf(INFO_FILE, "Client %s (%llu) disconnected, now at %d/%d clients.\n", SteamFriends()->GetFriendPersonaName(this->clients[i_client].id), this->clients[i_client].id.ConvertToUint64(), this->nr_clients - 1, this->max_clients);
+            host_remove_client(this, i_client);
+        }
+    }
+}
+
+void host::OnIPCFailure(IPCFailure_t *callback) {
+    fprintf(ERROR_FILE, "host::OnIPCFailure: Steam IPC failure!\n");
+    this->active = false;
+}
+
+void host::OnSteamShutdown(SteamShutdown_t *callback) {
+    fprintf(ERROR_FILE, "host::OnSteamShutdown: Steam is shutting down!\n");
+    this->active = false;
 }
 
 extern "C" bool __cdecl host_listen(void *_h, const int) {
